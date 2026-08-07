@@ -1,0 +1,20 @@
+{
+  "$comment": "Controlled vocabulary for SurfaceID.provider/resource/operation — SPEC §6.1. Hardcoded to OpenAI and Anthropic per SPEC §15. Adding a provider is an addition here, not a structural change (docs/decisions/0001-vocabulary-placement.md).",
+  "openai": {
+    "resources": {
+      "chat.completions": ["create"],
+      "responses": ["create"],
+      "embeddings": ["create"],
+      "images": ["generate", "edit"],
+      "moderations": ["create"]
+    }
+  },
+  "anthropic": {
+    "resources": {
+      "messages": ["create", "stream", "count_tokens"]
+    }
+  },
+  "$ambiguous_resources": {
+    "messages": "single common English word — collides with unrelated SDKs using the identical `messages.create` shape (e.g. Twilio), so a match here is weaker evidence than a multi-segment resource like chat.completions"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://avert.dev/schemas/call_site.schema.json",
+  "title": "CallSite",
+  "description": "One resolved external API call expression in customer code. SPEC §5.1/§6.1/§8. Deliberately excludes owning-service/team and critical-path flag (need CODEOWNERS integration, not week 1) and any code snippet (SPEC §10 — no code retention beyond file path and line numbers).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "surface",
+    "repo",
+    "file_path",
+    "line_start",
+    "line_end",
+    "language",
+    "value_binding",
+    "confidence",
+    "extractor",
+    "file_content_hash"
+  ],
+  "properties": {
+    "surface": {
+      "$ref": "surface_id.schema.json",
+      "description": "The canonical identity this call site resolves to."
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository identifier, e.g. \"owner/name\"."
+    },
+    "commit_sha": {
+      "type": ["string", "null"],
+      "description": "Commit the extraction ran against. Null when indexing a working tree with uncommitted changes."
+    },
+    "file_path": {
+      "type": "string",
+      "description": "Path relative to the repository root."
+    },
+    "line_start": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "line_end": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "language": {
+      "type": "string",
+      "enum": ["python", "typescript"]
+    },
+    "api_version": {
+      "type": ["string", "null"],
+      "description": "Provider API version pinned at or around this call site (SPEC §6.1). Null when unpinned — most call sites, per spec."
+    },
+    "value_binding": {
+      "type": "string",
+      "enum": ["literal", "dynamic", "absent"],
+      "description": "SPEC §6.1 resolution state. literal: statically resolved value. dynamic: argument present but assembled from config/env/variable. absent: not supplied; provider default applies."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Per-call-site confidence (SPEC §8.3). 1.0 for statically resolved typed SDK calls; lower for heuristic matches."
+    },
+    "extractor": {
+      "type": "string",
+      "description": "Which funnel stage resolved this call site, e.g. \"tree_sitter.python\", \"tree_sitter.typescript\". SPEC §8.1 — week 1 covers steps 1-2 only; no \"embeddings\"/\"small_model\"/\"frontier_model\" values yet."
+    },
+    "file_content_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "sha256 of the file's bytes at extraction time. SPEC §8.2 incremental re-indexing key."
+    }
+  }
+}

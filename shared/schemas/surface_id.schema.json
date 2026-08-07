@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://avert.dev/schemas/surface_id.schema.json",
+  "title": "SurfaceID",
+  "description": "Canonical identity for an external API surface. SPEC §6.1 — the single hardest thing to change later; every stored call site and historical change event references it. provider/resource/operation are drawn from shared/vocabulary/providers.json, enforced by the generated model's validators, not by this schema alone (JSON Schema cannot express the provider→resource→operation dependency).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider", "resource"],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "description": "Lowercase dotted path, e.g. \"openai\", \"anthropic\". Controlled vocabulary — see shared/vocabulary/providers.json.",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$"
+    },
+    "resource": {
+      "type": "string",
+      "description": "Lowercase dotted path, e.g. \"chat.completions\", \"messages\". Controlled vocabulary.",
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$"
+    },
+    "operation": {
+      "type": ["string", "null"],
+      "description": "e.g. \"create\". Controlled vocabulary. Null means every operation on the resource.",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "field_path": {
+      "type": ["string", "null"],
+      "description": "e.g. \"model\", \"metadata.customer_id\". Null means the surface itself, not one of its fields."
+    },
+    "value": {
+      "type": ["string", "null"],
+      "description": "e.g. \"gpt-4-0613\". Stored verbatim as the provider writes it — an opaque token the provider owns, never canonicalised. Null means every value of the field (or, if field_path is also null, the surface itself)."
+    }
+  }
+}
