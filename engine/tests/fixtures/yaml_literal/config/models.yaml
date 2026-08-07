@@ -1,0 +1,4 @@
+# openai model pin, read by the deploy pipeline — not Python or TypeScript
+# source, so the static extractor (Python/TS only) never sees it.
+openai:
+  model: gpt-4-0613

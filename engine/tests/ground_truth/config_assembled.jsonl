@@ -1,0 +1,1 @@
+{"file_path": "src/client.py", "line": 7, "difficulty": "config_assembled", "expect_detected": true, "provider": "openai", "resource": "chat.completions", "operation": "create", "field_path": "model", "value": null, "value_binding": "dynamic", "note": "endpoint URL and model both assembled from config module, not a vocabulary-listed method chain (SPEC §8.3 hard case)"}
