@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.12.1"
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Sync engine dependencies
+        working-directory: engine
+        run: uv sync
+
+      # STRUCTURE.md §2: generated output is committed, and CI fails if
+      # regeneration produces a diff — so consumers never run codegen, but
+      # drift between shared/schemas/ and engine/avert/models/ is impossible.
+      - name: Check generated models are up to date
+        run: |
+          ./shared/generate.sh
+          git diff --exit-code -- engine/avert/models
+
+      - name: Lint
+        working-directory: engine
+        run: uv run ruff check .
+
+      # test_incremental.py skips itself when no Postgres is reachable
+      # (no database service configured in this job) — the rest of the
+      # suite (unit tests + the experiment-2 harness on fixtures) runs
+      # fully offline.
+      - name: Test
+        working-directory: engine
+        run: uv run pytest -v
