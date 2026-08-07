@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: avert
+      POSTGRES_PASSWORD: avert
+      POSTGRES_DB: avert
+    ports:
+      - "5432:5432"
+    volumes:
+      - avert_postgres_data:/var/lib/postgresql
+
+volumes:
+  avert_postgres_data:
