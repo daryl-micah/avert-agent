@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Local dev artifacts
+*.jsonl
+!engine/tests/ground_truth/*.jsonl
