@@ -76,6 +76,7 @@ Prefer extending existing patterns over introducing new ones.
 ## 7. Git hygeine
 - Never add `Co-authored-by:` trailers or any AI attribution to Git commits or commit messages unless the user explicitly requests it.
 - Don't commit code or push to main unless the user explicitly requests it. 
+- Prefer one commit per cohesive feature or functionality. Split a large change into scoped commits only when it introduces multiple distinct features or functionalities worth noting separately; don't split one feature across multiple commits.
 
 ---
 
