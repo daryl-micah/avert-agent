@@ -29,11 +29,12 @@ for f in avert/models/*.py; do
 done
 
 # --- TypeScript target: app/src/types/ ---
-# Disabled until app/ exists (STRUCTURE.md §6.3, week 4). Enable by uncommenting
-# once app/package.json is in place:
-#
-# cd "$REPO_ROOT/app"
-# pnpm dlx json-schema-to-typescript "$SCRIPT_DIR/schemas/*.schema.json" \
-#   --output src/types/
+cd "$REPO_ROOT/app"
+cd "$SCRIPT_DIR/schemas"
+for schema in *.schema.json; do
+  "$REPO_ROOT/app/node_modules/.bin/json2ts" \
+    --input "$schema" \
+    --output "$REPO_ROOT/app/src/types/${schema%.schema.json}.ts"
+done
 
-echo "Generated: engine/avert/models/"
+echo "Generated: engine/avert/models/ app/src/types/"
