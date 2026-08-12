@@ -10,6 +10,8 @@ from pathlib import Path
 
 import psycopg
 
+from avert.models.change_event_schema import ChangeEvent
+
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
@@ -123,5 +125,31 @@ def insert_call_site(
         RETURNING id
         """,
         (indexed_file_id, surface_id, line_start, line_end, api_version, value_binding, confidence, extractor),
+    ).fetchone()
+    return row[0]
+
+
+def upsert_change_event(conn: psycopg.Connection, event: ChangeEvent, *, fingerprint: str) -> int:
+    surface_id = upsert_surface(conn, **event.surface.model_dump())
+    replacement_surface_id = None
+    if event.replacement_surface is not None:
+        replacement_surface_id = upsert_surface(conn, **event.replacement_surface.model_dump())
+    row = conn.execute(
+        """
+        INSERT INTO change_event
+            (surface_id, replacement_surface_id, change_type, severity, source, confidence, summary,
+             announced_at, effective_at, applies_from, applies_to, detected_at, provenance, fingerprint)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+        ON CONFLICT (fingerprint) DO UPDATE SET
+            confidence = EXCLUDED.confidence, summary = EXCLUDED.summary,
+            announced_at = EXCLUDED.announced_at, effective_at = EXCLUDED.effective_at,
+            detected_at = EXCLUDED.detected_at, provenance = EXCLUDED.provenance
+        RETURNING id
+        """,
+        (
+            surface_id, replacement_surface_id, event.change_type, event.severity, event.source,
+            event.confidence, event.summary, event.announced_at, event.effective_at,
+            event.applies_from, event.applies_to, event.detected_at, event.provenance.model_dump_json(), fingerprint,
+        ),
     ).fetchone()
     return row[0]

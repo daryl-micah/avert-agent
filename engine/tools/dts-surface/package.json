@@ -1,0 +1,6 @@
+{
+  "name": "@avert/dts-surface",
+  "private": true,
+  "type": "module",
+  "dependencies": {"typescript": "^5.0.0"}
+}

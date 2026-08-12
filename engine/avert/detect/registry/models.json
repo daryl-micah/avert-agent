@@ -1,0 +1,22 @@
+[
+  {
+    "provider": "openai",
+    "resource": "chat.completions",
+    "operation": "create",
+    "model": "gpt-4-0613",
+    "replacement": "gpt-5.6-sol",
+    "announced_at": "2026-05-08",
+    "effective_at": "2026-10-23",
+    "source_url": "https://developers.openai.com/api/docs/deprecations"
+  },
+  {
+    "provider": "anthropic",
+    "resource": "messages",
+    "operation": "create",
+    "model": "claude-3-opus-20240229",
+    "replacement": "claude-opus-4-8",
+    "announced_at": "2025-06-30",
+    "effective_at": "2026-01-05",
+    "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+  }
+]

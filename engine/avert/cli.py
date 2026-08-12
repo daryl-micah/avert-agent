@@ -4,6 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from avert.detect.registry import load_events
+from avert.detect.sdk_diff.acquire import downloaded_pair
+from avert.detect.sdk_diff.diff import diff_artifacts
 from avert.index import run_index
 from avert.models.call_site_schema import CallSite
 from avert.score import format_report, label_template, load_labels, load_predictions, score
@@ -53,6 +56,45 @@ def cmd_label(args: argparse.Namespace) -> int:
     return 0
 
 
+def _write_events(events, out_path: Path) -> None:
+    with out_path.open("w") as f:
+        for event in events:
+            f.write(event.model_dump_json() + "\n")
+
+
+def cmd_registry(args: argparse.Namespace) -> int:
+    events = load_events()
+    out_path = Path(args.out)
+    _write_events(events, out_path)
+    print(f"{len(events)} lifecycle events -> {out_path}")
+    return 0
+
+
+def cmd_sdk_diff(args: argparse.Namespace) -> int:
+    source_url = args.source_url or f"https://{args.ecosystem}.org/project/{args.package}/"
+    if args.from_path and args.to_path:
+        from_path, to_path = Path(args.from_path), Path(args.to_path)
+        events = diff_artifacts(
+            ecosystem=args.ecosystem, package=args.package, from_path=from_path, to_path=to_path,
+            from_version=args.from_version, to_version=args.to_version, source_url=source_url,
+        )
+    else:
+        tempdir, (from_path, to_path) = downloaded_pair(
+            ecosystem=args.ecosystem, package=args.package, from_version=args.from_version, to_version=args.to_version,
+        )
+        try:
+            events = diff_artifacts(
+                ecosystem=args.ecosystem, package=args.package, from_path=from_path, to_path=to_path,
+                from_version=args.from_version, to_version=args.to_version, source_url=source_url,
+            )
+        finally:
+            tempdir.cleanup()
+    out_path = Path(args.out)
+    _write_events(events, out_path)
+    print(f"{len(events)} SDK changes -> {out_path}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="avert")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -75,6 +117,21 @@ def main() -> int:
     label_parser.add_argument("predictions", help="Predictions JSONL (from `avert index`)")
     label_parser.add_argument("--out", required=True, help="Output labels JSONL path")
     label_parser.set_defaults(func=cmd_label)
+
+    registry_parser = subparsers.add_parser("registry", help="Export model lifecycle events")
+    registry_parser.add_argument("--out", required=True, help="Output JSONL path")
+    registry_parser.set_defaults(func=cmd_registry)
+
+    diff_parser = subparsers.add_parser("sdk-diff", help="Diff two published SDK versions")
+    diff_parser.add_argument("--ecosystem", choices=["pypi", "npm"], required=True)
+    diff_parser.add_argument("--package", required=True)
+    diff_parser.add_argument("--from-version", required=True)
+    diff_parser.add_argument("--to-version", required=True)
+    diff_parser.add_argument("--out", required=True)
+    diff_parser.add_argument("--source-url", default=None)
+    diff_parser.add_argument("--from-path", default=None, help="Local unpacked artifact (tests/offline use)")
+    diff_parser.add_argument("--to-path", default=None, help="Local unpacked artifact (tests/offline use)")
+    diff_parser.set_defaults(func=cmd_sdk_diff)
 
     args = parser.parse_args()
     return args.func(args)
