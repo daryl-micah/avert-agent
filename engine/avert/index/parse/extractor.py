@@ -38,6 +38,61 @@ _LANGUAGE_CONFIG = {
 }
 
 
+def locate_literal_model_argument(
+    *, file_path: str, language: str, source: bytes, call_site: CallSite
+) -> tuple[int, int] | None:
+    """Returns the byte range containing a literal model value for `call_site`.
+
+    The returned range excludes string delimiters, so callers can replace the
+    model token while preserving the source file's original quote style.
+    """
+    if language == "typescript" and file_path.endswith(".tsx"):
+        parser = Parser(_TSX_LANGUAGE)
+        query = _TSX_QUERY
+    else:
+        parser = Parser(_LANGUAGE_CONFIG[language][0])
+        query = _LANGUAGE_CONFIG[language][1]
+
+    candidates: list[tuple[int, int]] = []
+    cursor = QueryCursor(query)
+    for _pattern_idx, captures in cursor.matches(parser.parse(source).root_node):
+        expr = captures["call.expr"][0]
+        if (
+            expr.start_point[0] + 1 != call_site.line_start
+            or expr.end_point[0] + 1 != call_site.line_end
+        ):
+            continue
+        callee = captures["call.callee"][0]
+        dotted_path = _text(callee, source).replace("\n", "").replace(" ", "")
+        surface_match = vocabulary.match_callee(dotted_path)
+        if surface_match is None:
+            continue
+        if (
+            surface_match.provider != call_site.surface.provider
+            or surface_match.resource != call_site.surface.resource
+            or surface_match.operation != call_site.surface.operation
+        ):
+            continue
+
+        args_node = expr.child_by_field_name("arguments")
+        value_node = (
+            _python_model_value_node(args_node, source)
+            if language == "python"
+            else _ts_model_value_node(args_node, source)
+        )
+        value = (
+            _classify_python_value(value_node, source)
+            if language == "python"
+            else _classify_ts_value(value_node, source)
+        )
+        if value != ("literal", call_site.surface.value):
+            continue
+        value_range = _literal_content_range(value_node, language, source)
+        if value_range is not None:
+            candidates.append(value_range)
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def extract_call_sites(
     *,
     file_path: str,
@@ -117,17 +172,20 @@ _PY_STRING_PREFIX_RE = re.compile(r"^[a-zA-Z]*")
 
 
 def _python_model_arg(args_node: Node | None, source: bytes) -> tuple[str, str | None]:
+    return _classify_python_value(_python_model_value_node(args_node, source), source)
+
+
+def _python_model_value_node(args_node: Node | None, source: bytes) -> Node | None:
     if args_node is None:
-        return "absent", None
+        return None
     for child in args_node.named_children:
         if child.type != "keyword_argument":
             continue
         name_node = child.child_by_field_name("name")
         if name_node is None or _text(name_node, source) != "model":
             continue
-        value_node = child.child_by_field_name("value")
-        return _classify_python_value(value_node, source)
-    return "absent", None
+        return child.child_by_field_name("value")
+    return None
 
 
 def _classify_python_value(value_node: Node | None, source: bytes) -> tuple[str, str | None]:
@@ -151,8 +209,12 @@ def _classify_python_value(value_node: Node | None, source: bytes) -> tuple[str,
 
 
 def _ts_model_arg(args_node: Node | None, source: bytes) -> tuple[str, str | None]:
+    return _classify_ts_value(_ts_model_value_node(args_node, source), source)
+
+
+def _ts_model_value_node(args_node: Node | None, source: bytes) -> Node | None:
     if args_node is None:
-        return "absent", None
+        return None
     for arg in args_node.named_children:
         if arg.type != "object":
             continue
@@ -165,9 +227,8 @@ def _ts_model_arg(args_node: Node | None, source: bytes) -> tuple[str, str | Non
             key_text = _text(key_node, source).strip("'\"")
             if key_text != "model":
                 continue
-            value_node = prop.child_by_field_name("value")
-            return _classify_ts_value(value_node, source)
-    return "absent", None
+            return prop.child_by_field_name("value")
+    return None
 
 
 def _classify_ts_value(value_node: Node | None, source: bytes) -> tuple[str, str | None]:
@@ -183,3 +244,20 @@ def _classify_ts_value(value_node: Node | None, source: bytes) -> tuple[str, str
             return "literal", text[1:-1]
         return "dynamic", None
     return "dynamic", None
+
+
+def _literal_content_range(value_node: Node | None, language: str, source: bytes) -> tuple[int, int] | None:
+    if value_node is None:
+        return None
+    text = _text(value_node, source)
+    if language == "python":
+        prefix_end = _PY_STRING_PREFIX_RE.match(text).end()
+        body = text[prefix_end:]
+        for quote in ('\"\"\"', "'''", '\"', "'"):
+            if body.startswith(quote) and body.endswith(quote) and len(body) >= 2 * len(quote):
+                start = value_node.start_byte + prefix_end + len(quote)
+                return start, value_node.end_byte - len(quote)
+        return None
+    if value_node.type in {"string", "template_string"} and len(text) >= 2:
+        return value_node.start_byte + 1, value_node.end_byte - 1
+    return None
