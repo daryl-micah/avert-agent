@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 import sys
 from pathlib import Path
 
 from avert.detect.registry import load_events
 from avert.detect.sdk_diff.acquire import downloaded_pair
 from avert.detect.sdk_diff.diff import diff_artifacts
+from avert.experiment3 import format_report as format_experiment3_report
+from avert.experiment3 import run_experiment
 from avert.index import run_index
 from avert.models.call_site_schema import CallSite
+from avert.models.change_event_schema import ChangeEvent
+from avert.patch import generate_model_replacement
 from avert.score import format_report, label_template, load_labels, load_predictions, score
+from avert.verify import verify_proposal
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -95,6 +101,48 @@ def cmd_sdk_diff(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_remediate(args: argparse.Namespace) -> int:
+    root = Path(args.path).resolve()
+    if not root.is_dir():
+        print(f"error: {root} is not a repository directory", file=sys.stderr)
+        return 1
+    try:
+        event = ChangeEvent.model_validate_json(Path(args.event).read_text())
+    except (OSError, ValueError) as exc:
+        print(f"error: could not load event: {exc}", file=sys.stderr)
+        return 1
+
+    commands = [tuple(shlex.split(command)) for command in args.check]
+    proposals = [
+        proposal
+        for call_site in run_index(root, repo=args.repo or root.name, commit=args.commit)
+        if (proposal := generate_model_replacement(root, event, call_site)) is not None
+    ]
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    verified = 0
+    for proposal in proposals:
+        evidence = verify_proposal(root, event, proposal, commands=commands, timeout_seconds=args.timeout)
+        stem = proposal.file_path.replace("/", "__").replace("\\", "__")
+        base = out_dir / f"{stem}.L{proposal.line_start}"
+        Path(f"{base}.diff").write_text(proposal.diff)
+        Path(f"{base}.evidence.json").write_text(evidence.to_json())
+        verified += evidence.passed
+
+    print(f"{len(proposals)} patch proposals, {verified} verified -> {out_dir}")
+    return 0 if verified == len(proposals) else 2
+
+
+def cmd_experiment3(args: argparse.Namespace) -> int:
+    report = run_experiment(
+        Path(args.cases) if args.cases else None,
+        grades_path=Path(args.grades) if args.grades else None,
+    )
+    Path(args.out).write_text(report.to_json())
+    print(format_experiment3_report(report))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="avert")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +180,26 @@ def main() -> int:
     diff_parser.add_argument("--from-path", default=None, help="Local unpacked artifact (tests/offline use)")
     diff_parser.add_argument("--to-path", default=None, help="Local unpacked artifact (tests/offline use)")
     diff_parser.set_defaults(func=cmd_sdk_diff)
+
+    remediate_parser = subparsers.add_parser(
+        "remediate", help="Generate and verify literal model replacement proposals"
+    )
+    remediate_parser.add_argument("path", help="Repository root")
+    remediate_parser.add_argument("--event", required=True, help="One ChangeEvent JSON file")
+    remediate_parser.add_argument("--out", required=True, help="Directory for diffs and evidence JSON")
+    remediate_parser.add_argument("--check", action="append", default=[], help="Verification command (repeatable)")
+    remediate_parser.add_argument("--timeout", type=int, default=60, help="Per-check timeout in seconds")
+    remediate_parser.add_argument("--repo", default=None, help="Repo identifier (defaults to directory name)")
+    remediate_parser.add_argument("--commit", default=None, help="Commit SHA being remediated")
+    remediate_parser.set_defaults(func=cmd_remediate)
+
+    experiment_parser = subparsers.add_parser(
+        "experiment3", help="Run the historical model-deprecation remediation corpus"
+    )
+    experiment_parser.add_argument("--cases", default=None, help="Cases JSON (defaults to the committed corpus)")
+    experiment_parser.add_argument("--grades", default=None, help="Manual grades JSON")
+    experiment_parser.add_argument("--out", required=True, help="Experiment report JSON")
+    experiment_parser.set_defaults(func=cmd_experiment3)
 
     args = parser.parse_args()
     return args.func(args)
