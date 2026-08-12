@@ -51,15 +51,32 @@ export async function getRepositoryFile(
   return Buffer.from(data.content.replace(/\n/g, ""), "base64").toString("utf8");
 }
 
-export async function installationClientFromEnvironment(): Promise<GitHubRequester> {
+export async function downloadRepositoryArchive(
+  github: GitHubRequester,
+  owner: string,
+  repo: string,
+  ref: string,
+): Promise<Buffer> {
+  const response = await github.request("GET /repos/{owner}/{repo}/tarball/{ref}", {
+    owner,
+    repo,
+    ref,
+    request: { redirect: "follow" },
+  });
+  const data = response.data;
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  if (ArrayBuffer.isView(data)) return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  throw new Error(`GitHub did not return an archive for ${owner}/${repo}`);
+}
+
+export async function installationClient(installationId: number): Promise<GitHubRequester> {
   const appId = process.env.GITHUB_APP_ID;
   const privateKey = process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  const installationId = process.env.GITHUB_INSTALLATION_ID;
-  if (!appId || !privateKey || !installationId) {
-    throw new Error(
-      "GITHUB_APP_ID, GITHUB_PRIVATE_KEY, and GITHUB_INSTALLATION_ID are required",
-    );
+  if (!appId || !privateKey) throw new Error("GITHUB_APP_ID and GITHUB_PRIVATE_KEY are required");
+  if (!Number.isSafeInteger(installationId) || installationId <= 0) {
+    throw new Error("A valid GitHub installation ID is required");
   }
   const app = new App({ appId, privateKey });
-  return app.getInstallationOctokit(Number(installationId));
+  return app.getInstallationOctokit(installationId);
 }

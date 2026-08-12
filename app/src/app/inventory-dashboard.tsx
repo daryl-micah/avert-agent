@@ -1,0 +1,119 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import type { RepositorySummary } from "@/github/client";
+import type { Inventory, LifecycleStatus } from "@/inventory/inventory";
+
+function Status({ value }: { value: LifecycleStatus }) {
+  return <span className={`status status-${value}`}>{value}</span>;
+}
+
+export function InventoryDashboard({ initialInventory }: { initialInventory: Inventory }) {
+  const [inventory, setInventory] = useState(initialInventory);
+  const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [indexing, setIndexing] = useState<string | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/github/repositories")
+      .then(async (response) => {
+        if (!response.ok) throw new Error((await response.json()).error ?? "Could not load repositories");
+        return response.json() as Promise<RepositorySummary[]>;
+      })
+      .then(setRepositories)
+      .catch((error: Error) => setConnectionError(error.message));
+  }, []);
+
+  async function indexRepository(repository: RepositorySummary) {
+    setIndexing(repository.fullName);
+    setConnectionError(null);
+    try {
+      const response = await fetch("/api/github/repositories/index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName: repository.fullName, ref: repository.defaultBranch }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not index repository");
+      setInventory(data as Inventory);
+    } catch (error) {
+      setConnectionError(error instanceof Error ? error.message : "Could not index repository");
+    } finally {
+      setIndexing(null);
+    }
+  }
+
+  return (
+    <main>
+      <header>
+        <div className="topline">
+          <div className="wordmark"><span>A</span> Avert</div>
+          <a className="connect" href="/api/github/connect">Connect GitHub</a>
+        </div>
+        <div className="eyebrow">API dependency intelligence</div>
+        <h1>Your external APIs,<br />mapped to the line.</h1>
+        <p className="lede">
+          A read-only inventory of every provider call, the models in use, and the lifecycle
+          changes that need attention.
+        </p>
+      </header>
+
+      {repositories.length > 0 && (
+        <section className="repository-picker" aria-label="GitHub repositories">
+          <div><span className="eyebrow">Connected installation</span><h2>Index a repository</h2></div>
+          <div className="repository-actions">
+            {repositories.map((repository) => (
+              <button
+                key={repository.id}
+                disabled={indexing !== null}
+                onClick={() => void indexRepository(repository)}
+              >
+                {indexing === repository.fullName ? "Indexing…" : repository.fullName}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {connectionError && connectionError !== "GitHub is not connected" && (
+        <p className="connection-error" role="alert">{connectionError}</p>
+      )}
+
+      <section className="metrics" aria-label="Inventory summary">
+        <article><strong>{inventory.repositories.length}</strong><span>Repositories</span></article>
+        <article><strong>{inventory.providers.length}</strong><span>Providers</span></article>
+        <article><strong>{inventory.callSiteCount}</strong><span>Call sites</span></article>
+        <article className="attention"><strong>{inventory.attentionCount}</strong><span>Need attention</span></article>
+      </section>
+
+      <section className="inventory">
+        <div className="section-heading">
+          <div><span className="eyebrow">Live inventory</span><h2>Dependencies</h2></div>
+          <span className="repo-list">{inventory.repositories.join(" · ") || "No repository indexed"}</span>
+        </div>
+        {inventory.dependencies.length === 0 ? (
+          <div className="empty">
+            <h3>Connect the first inventory</h3>
+            <p>Connect GitHub above, then choose a repository for ephemeral indexing.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Provider / surface</th><th>Model</th><th>Status</th><th>Locations</th></tr></thead>
+              <tbody>
+                {inventory.dependencies.map((dependency) => (
+                  <tr key={`${dependency.provider}:${dependency.resource}:${dependency.model}:${dependency.valueBinding}`}>
+                    <td><b>{dependency.provider}</b><small>{dependency.resource}.{dependency.operation}</small></td>
+                    <td><code>{dependency.model ?? dependency.valueBinding}</code>{dependency.replacement && <small>→ {dependency.replacement}</small>}</td>
+                    <td><Status value={dependency.status} />{dependency.effectiveAt && <small>{dependency.effectiveAt}</small>}</td>
+                    <td><b>{dependency.locations.length}</b><small>{dependency.locations[0].filePath}:{dependency.locations[0].line}</small></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}

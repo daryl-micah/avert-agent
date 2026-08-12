@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { getRepositoryFile, listInstallationRepositories } from "../src/github/client";
+import {
+  downloadRepositoryArchive,
+  getRepositoryFile,
+  listInstallationRepositories,
+} from "../src/github/client";
 
 describe("read-only GitHub client", () => {
   it("lists repositories visible to an installation", async () => {
@@ -38,5 +42,12 @@ describe("read-only GitHub client", () => {
     const request = vi.fn().mockResolvedValue({ data: { type: "dir" } });
     await expect(getRepositoryFile({ request }, "acme", "api", "src"))
       .rejects.toThrow("not a downloadable file");
+  });
+
+  it("downloads a repository archive with a read request", async () => {
+    const request = vi.fn().mockResolvedValue({ data: new Uint8Array([1, 2, 3]) });
+    await expect(downloadRepositoryArchive({ request }, "acme", "api", "main"))
+      .resolves.toEqual(Buffer.from([1, 2, 3]));
+    expect(request.mock.calls[0][0]).toBe("GET /repos/{owner}/{repo}/tarball/{ref}");
   });
 });

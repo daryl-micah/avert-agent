@@ -5,7 +5,7 @@ import type { CallSite } from "@/types/call_site";
 
 export type LifecycleStatus = "current" | "retiring" | "retired" | "unknown";
 
-interface LifecycleRecord {
+export interface LifecycleRecord {
   provider: string;
   resource: string;
   operation: string;
@@ -174,18 +174,13 @@ export function emptyInventory(): Inventory {
 }
 
 export async function loadInventory(inventoryPath: string): Promise<Inventory> {
-  const registryPath = path.resolve(
-    process.cwd(),
-    "../engine/avert/detect/registry/models.json",
-  );
-  const [inventoryJsonl, registryJson] = await Promise.all([
-    readFile(inventoryPath, "utf8"),
-    readFile(registryPath, "utf8"),
-  ]);
-  return buildInventory(
-    parseCallSitesJsonl(inventoryJsonl),
-    JSON.parse(registryJson) as LifecycleRecord[],
-  );
+  return inventoryFromJsonl(await readFile(inventoryPath, "utf8"));
+}
+
+export async function inventoryFromJsonl(inventoryJsonl: string): Promise<Inventory> {
+  const registryPath = path.resolve(process.cwd(), "../engine/avert/detect/registry/models.json");
+  const registryJson = await readFile(registryPath, "utf8");
+  return buildInventory(parseCallSitesJsonl(inventoryJsonl), JSON.parse(registryJson));
 }
 
 export async function loadInventoryFromEnvironment(): Promise<Inventory> {
