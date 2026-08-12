@@ -8,6 +8,20 @@ on:
 jobs:
   engine:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: avert
+          POSTGRES_PASSWORD: avert
+          POSTGRES_DB: avert
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U avert -d avert"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +36,10 @@ jobs:
       - name: Sync engine dependencies
         working-directory: engine
         run: uv sync
+
+      - name: Install TypeScript declaration extractor dependencies
+        working-directory: engine/tools/dts-surface
+        run: npm ci
 
       # STRUCTURE.md §2: generated output is committed, and CI fails if
       # regeneration produces a diff — so consumers never run codegen, but
