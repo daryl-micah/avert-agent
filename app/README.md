@@ -10,8 +10,12 @@ requests repository write access.
 
    - Setup URL: `http://localhost:3000/api/github/setup`
    - Callback URL: `http://localhost:3000/api/github/callback`
+   - Webhook URL: `http://localhost:3000/api/github/webhook`, subscribed to **Push** events, with a
+     webhook secret (use a tunnel such as `gh webhook forward` or ngrok for local development)
 
-2. Copy `.env.example` to `.env.local` and add the app, OAuth, and private-key credentials.
+2. Copy `.env.example` to `.env.local` and add the app, OAuth, private-key, and webhook credentials.
+   `AVERT_DATABASE_URL` points at the compose Postgres (`docker compose up -d` from the repository
+   root).
 3. Start the dashboard:
 
    ```bash
@@ -21,23 +25,28 @@ requests repository write access.
 
 4. Select **Connect GitHub**, install the app, authorize your user, and choose a repository.
    Avert resolves the selected branch to an immutable commit, downloads that archive with the
-   installation's read-only token, indexes it under a temporary directory, returns the inventory,
-   and deletes the source copy. Repository selection is paginated for installations with more
-   than 100 repositories.
+   installation's read-only token, indexes it incrementally into Postgres under the installation,
+   deletes the source copy, and renders the inventory the engine builds from the impact join.
+   Subsequent pushes to the repository's default branch re-index it through the webhook.
 
-For offline development, the original JSONL path remains available:
+The app owns no inventory logic: every route shells out to `avert index`, `avert registry`, and
+`avert inventory` (see `src/inventory/engine.ts`), so lifecycle status has exactly one definition,
+`engine/avert/join.py`. The inventory shape is `shared/schemas/inventory.schema.json`.
+
+For development without GitHub, index a local checkout directly and open the dashboard after
+connecting — or read the JSON the dashboard would render:
 
 ```bash
 cd ../engine
-uv run avert index /path/to/repository --repo owner/name --out ../calls.jsonl
+uv run avert index /path/to/repository --repo owner/name --database $AVERT_DATABASE_URL
+uv run avert registry --database $AVERT_DATABASE_URL
+uv run avert inventory --database $AVERT_DATABASE_URL
 ```
 
-Set `AVERT_INVENTORY_PATH=../calls.jsonl` before starting the app. The read-only repository
-connection is available at `GET /api/github/repositories`; ephemeral indexing is
-`POST /api/github/repositories/index`; normalized offline inventory is `GET /api/inventory`.
-
-This remains a local demo path. It does not persist installations or inventory, and its server
-runtime must have the engine's `uv` environment available.
+Endpoints: `GET /api/github/repositories`, `POST /api/github/repositories/index`,
+`POST /api/github/webhook`, `GET /api/inventory`. The server runtime must have the engine's `uv`
+environment and Postgres reachable. Webhook re-indexing runs inline after the response; a queue
+and worker (STRUCTURE.md `db/queue.py`, `workers/`) are still to come.
 
 ## Week 4 acceptance
 
@@ -49,5 +58,8 @@ runtime must have the engine's `uv` environment available.
   recorded `commit_sha` are the same immutable SHA.
 - Repository source is extracted without archive links, indexed in a temporary directory, and
   removed in a `finally` block.
+- Webhook deliveries are verified against `GITHUB_WEBHOOK_SECRET`; only default-branch pushes
+  re-index, at the pushed commit.
 - Unit tests cover authentication, repository pagination, immutable revision resolution, the full
-  mocked GitHub-to-indexer sequence, archive cleanup, and inventory lifecycle normalization.
+  mocked GitHub-to-indexer sequence, archive cleanup, and webhook verification. Lifecycle status is
+  tested where it is computed, in the engine's Postgres suite.

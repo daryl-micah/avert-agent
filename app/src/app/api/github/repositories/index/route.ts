@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     const github = await installationClient(installationId);
     const inventory = await indexGitHubRepository(
       github,
+      installationId,
       body.fullName,
       typeof body.ref === "string" ? body.ref : undefined,
     );
