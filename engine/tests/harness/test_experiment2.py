@@ -2,9 +2,10 @@
 
 Week 1 has no classify.py (STRUCTURE §5) — this measures the static funnel
 (ripgrep + tree-sitter) alone, steps 1-2 of SPEC §8.1's five-step funnel.
-"typed_sdk" is what that floor should get right. The other four fixtures
-are SPEC §8.3's named hard classes and are expected to score zero recall
-at this stage — each assertion below is a deliberate regression lock, not
+"typed_sdk" is what that floor should get right. The other five fixtures
+are hard classes — SPEC §8.3's four named ones plus aggregator_sdk, found
+by the first real-corpus run (docs/experiments/experiment2-2026-09-18.md)
+— and are expected to score zero recall at this stage — each assertion below is a deliberate regression lock, not
 a bug: it documents exactly what the LLM tiers (steps 3-5) still need to
 cover, and will need a conscious update if a later change starts catching
 one of these classes.
@@ -52,6 +53,17 @@ def test_yaml_literal_is_a_known_miss():
 
 def test_vendored_is_a_known_miss():
     report = _score_fixture("vendored")
+    assert report.overall.recall == 0.0
+    assert report.overall.false_positives == 0
+
+
+def test_aggregator_sdk_is_a_known_miss():
+    # litellm / LangChain / Vercel AI SDK. Unlike the four classes above this
+    # is a typed SDK call, but the provider is carried by the model string
+    # (or a factory) rather than the callee, which the vocabulary lookup and
+    # the SurfaceID tuple do not yet express. Lifting it is a SPEC §6.1
+    # decision, not a vocabulary addition.
+    report = _score_fixture("aggregator_sdk")
     assert report.overall.recall == 0.0
     assert report.overall.false_positives == 0
 
