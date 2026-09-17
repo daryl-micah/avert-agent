@@ -21,14 +21,37 @@ interface GitHubRepository {
 export async function listInstallationRepositories(
   github: GitHubRequester,
 ): Promise<RepositorySummary[]> {
-  const response = await github.request("GET /installation/repositories", { per_page: 100 });
-  const data = response.data as { repositories: GitHubRepository[] };
-  return data.repositories.map((repository) => ({
+  const repositories: GitHubRepository[] = [];
+  for (let page = 1; ; page += 1) {
+    const response = await github.request("GET /installation/repositories", { per_page: 100, page });
+    const data = response.data as { repositories: GitHubRepository[] };
+    repositories.push(...data.repositories);
+    if (data.repositories.length < 100) break;
+  }
+  return repositories.map((repository) => ({
     id: repository.id,
     fullName: repository.full_name,
     private: repository.private,
     defaultBranch: repository.default_branch,
   }));
+}
+
+export async function resolveRepositoryCommit(
+  github: GitHubRequester,
+  owner: string,
+  repo: string,
+  ref: string,
+): Promise<string> {
+  const response = await github.request("GET /repos/{owner}/{repo}/commits/{ref}", {
+    owner,
+    repo,
+    ref,
+  });
+  const data = response.data as { sha?: string };
+  if (!data.sha || !/^[a-f0-9]{40}$/i.test(data.sha)) {
+    throw new Error(`GitHub did not return a commit SHA for ${owner}/${repo}@${ref}`);
+  }
+  return data.sha;
 }
 
 export async function getRepositoryFile(

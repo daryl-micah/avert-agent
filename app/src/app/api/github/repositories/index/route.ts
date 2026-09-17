@@ -2,12 +2,10 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import {
-  downloadRepositoryArchive,
   installationClient,
-  listInstallationRepositories,
 } from "@/github/client";
 import { githubOAuthConfig, INSTALLATION_COOKIE, verifyInstallationCookie } from "@/github/auth";
-import { indexRepositoryArchive } from "@/inventory/github-indexer";
+import { indexGitHubRepository } from "@/inventory/github-indexer";
 
 interface IndexBody {
   fullName?: unknown;
@@ -35,18 +33,15 @@ export async function POST(request: Request) {
     }
 
     const github = await installationClient(installationId);
-    const repositories = await listInstallationRepositories(github);
-    const repository = repositories.find((candidate) => candidate.fullName === body.fullName);
-    if (!repository) {
-      return NextResponse.json({ error: "Repository is not available to this installation" }, { status: 404 });
-    }
-    const [owner, repo] = repository.fullName.split("/", 2);
-    const ref = typeof body.ref === "string" ? body.ref : repository.defaultBranch;
-    const archive = await downloadRepositoryArchive(github, owner, repo, ref);
-    const inventory = await indexRepositoryArchive(archive, { repo: repository.fullName, commit: ref });
+    const inventory = await indexGitHubRepository(
+      github,
+      body.fullName,
+      typeof body.ref === "string" ? body.ref : undefined,
+    );
     return NextResponse.json(inventory);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not index repository";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message === "Repository is not available to this installation" ? 404 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

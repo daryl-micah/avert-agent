@@ -6,8 +6,9 @@ See [docs/SPEC.md](docs/SPEC.md) for the product spec and [docs/STRUCTURE.md](do
 
 ## Status
 
-Phase 1, week 4 (SPEC §15). Static inventory, SDK/lifecycle change detection, impact joins,
-guarded model-replacement proposals, and a read-only GitHub inventory dashboard.
+Phase 1, week 4 complete (SPEC §15). Static inventory, SDK/lifecycle change detection, impact
+joins, guarded model-replacement proposals, and a read-only GitHub inventory dashboard with
+installation-scoped, immutable-revision repository indexing.
 
 ## Development
 

@@ -3,11 +3,41 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { c as createTar } from "tar";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { indexRepositoryArchive } from "../src/inventory/github-indexer";
+import { indexGitHubRepository, indexRepositoryArchive } from "../src/inventory/github-indexer";
 
 describe("ephemeral GitHub indexing", () => {
+  it("indexes an installation repository at its resolved commit", async () => {
+    const sha = "b".repeat(40);
+    const archive = Buffer.from([1, 2, 3]);
+    const request = vi.fn()
+      .mockResolvedValueOnce({ data: { repositories: [{
+        id: 7,
+        full_name: "acme/api",
+        private: true,
+        default_branch: "main",
+      }] } })
+      .mockResolvedValueOnce({ data: { sha } })
+      .mockResolvedValueOnce({ data: archive });
+    const archiveIndexer = vi.fn().mockResolvedValue({
+      repositories: ["acme/api"],
+      providers: [],
+      callSiteCount: 0,
+      attentionCount: 0,
+      dependencies: [],
+    });
+
+    await indexGitHubRepository({ request }, "acme/api", undefined, archiveIndexer);
+
+    expect(request.mock.calls.map((call) => call[0])).toEqual([
+      "GET /installation/repositories",
+      "GET /repos/{owner}/{repo}/commits/{ref}",
+      "GET /repos/{owner}/{repo}/tarball/{ref}",
+    ]);
+    expect(archiveIndexer).toHaveBeenCalledWith(archive, { repo: "acme/api", commit: sha });
+  });
+
   it("extracts, indexes, and removes the repository copy", async () => {
     const fixtureRoot = await mkdtemp(path.join(tmpdir(), "avert-index-fixture-"));
     const archivePath = path.join(fixtureRoot, "repository.tar.gz");

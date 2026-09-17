@@ -4,6 +4,7 @@ import {
   downloadRepositoryArchive,
   getRepositoryFile,
   listInstallationRepositories,
+  resolveRepositoryCommit,
 } from "../src/github/client";
 
 describe("read-only GitHub client", () => {
@@ -25,7 +26,33 @@ describe("read-only GitHub client", () => {
       private: true,
       defaultBranch: "main",
     }]);
-    expect(request).toHaveBeenCalledWith("GET /installation/repositories", { per_page: 100 });
+    expect(request).toHaveBeenCalledWith(
+      "GET /installation/repositories",
+      { per_page: 100, page: 1 },
+    );
+  });
+
+  it("loads every page of repositories visible to an installation", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, id) => ({
+      id,
+      full_name: `acme/repository-${id}`,
+      private: false,
+      default_branch: "main",
+    }));
+    const request = vi.fn()
+      .mockResolvedValueOnce({ data: { repositories: firstPage } })
+      .mockResolvedValueOnce({ data: { repositories: [{
+        id: 100,
+        full_name: "acme/repository-100",
+        private: true,
+        default_branch: "trunk",
+      }] } });
+
+    await expect(listInstallationRepositories({ request })).resolves.toHaveLength(101);
+    expect(request).toHaveBeenLastCalledWith(
+      "GET /installation/repositories",
+      { per_page: 100, page: 2 },
+    );
   });
 
   it("fetches file content without a write request", async () => {
@@ -49,5 +76,17 @@ describe("read-only GitHub client", () => {
     await expect(downloadRepositoryArchive({ request }, "acme", "api", "main"))
       .resolves.toEqual(Buffer.from([1, 2, 3]));
     expect(request.mock.calls[0][0]).toBe("GET /repos/{owner}/{repo}/tarball/{ref}");
+  });
+
+  it("resolves a branch to the immutable commit indexed", async () => {
+    const sha = "a".repeat(40);
+    const request = vi.fn().mockResolvedValue({ data: { sha } });
+
+    await expect(resolveRepositoryCommit({ request }, "acme", "api", "main"))
+      .resolves.toBe(sha);
+    expect(request).toHaveBeenCalledWith(
+      "GET /repos/{owner}/{repo}/commits/{ref}",
+      { owner: "acme", repo: "api", ref: "main" },
+    );
   });
 });
