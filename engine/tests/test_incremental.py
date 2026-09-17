@@ -133,3 +133,80 @@ def test_model_lifecycle_join_is_definite_for_literal_and_possible_for_dynamic(c
         (3, "definite"),
         (4, "possible"),
     ]
+
+
+def test_apply_migrations_is_idempotent(conn):
+    assert db.apply_migrations(conn) == []
+    names = {row[0] for row in conn.execute("SELECT name FROM schema_migration").fetchall()}
+    assert "0001_init.sql" in names
+    assert "0003_repository_installation.sql" in names
+
+
+def test_inventory_status_comes_from_the_join(conn, tmp_path):
+    from datetime import date
+
+    from avert.inventory import build_inventory
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "llm.py").write_text(
+        "from openai import OpenAI\n"
+        "from anthropic import Anthropic\n"
+        "client = OpenAI()\n"
+        'client.chat.completions.create(model="gpt-4-0613", messages=[])\n'
+        "client.chat.completions.create(model=chosen, messages=[])\n"
+        'Anthropic().messages.create(model="claude-opus-4-8", messages=[])\n'
+    )
+    incremental_index(conn, tmp_path, repo="acme/widgets", github_installation_id=42)
+    for event in load_events():
+        db.upsert_change_event(conn, event, fingerprint=fingerprint(event))
+    conn.commit()
+
+    before = build_inventory(conn, today=date(2026, 9, 18))
+    after = build_inventory(conn, today=date(2026, 12, 1))
+
+    assert before.repositories == ["acme/widgets"]
+    assert before.call_site_count == 3
+    by_value = {(d.surface.value, d.value_binding): d for d in before.dependencies}
+    literal = by_value[("gpt-4-0613", "literal")]
+    assert literal.status == "retiring"
+    assert str(literal.effective_at) == "2026-10-23"
+    assert literal.replacement == "gpt-5.6-sol"
+    assert by_value[(None, "dynamic")].status == "unknown"
+    assert by_value[("claude-opus-4-8", "literal")].status == "current"
+    assert before.attention_count == 1
+    assert [d.status for d in before.dependencies] == ["retiring", "unknown", "current"]
+
+    after_literal = {(d.surface.value, d.value_binding): d for d in after.dependencies}
+    assert after_literal[("gpt-4-0613", "literal")].status == "retired"
+
+
+def test_inventory_scopes_to_an_installation(conn, tmp_path):
+    from avert.inventory import build_inventory
+
+    for name, installation in (("a", 1), ("b", 2)):
+        root = tmp_path / name
+        (root / "src").mkdir(parents=True)
+        (root / "src" / "llm.py").write_text(
+            "from openai import OpenAI\n"
+            'OpenAI().chat.completions.create(model="gpt-4o", messages=[])\n'
+        )
+        incremental_index(conn, root, repo=f"acme/{name}", github_installation_id=installation)
+
+    everything = build_inventory(conn)
+    scoped = build_inventory(conn, github_installation_id=2)
+
+    assert everything.repositories == ["acme/a", "acme/b"]
+    assert everything.call_site_count == 2
+    assert scoped.repositories == ["acme/b"]
+    assert scoped.call_site_count == 1
+    assert scoped.dependencies[0].locations[0].repo == "acme/b"
+
+
+def test_local_reindex_keeps_installation(conn, tmp_path):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "llm.py").write_text("from openai import OpenAI\n")
+    incremental_index(conn, tmp_path, repo="acme/widgets", github_installation_id=7)
+    incremental_index(conn, tmp_path, repo="acme/widgets")
+
+    row = conn.execute("SELECT github_installation_id FROM repository").fetchone()
+    assert row[0] == 7

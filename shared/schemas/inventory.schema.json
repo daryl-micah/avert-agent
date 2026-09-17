@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://avert.dev/schemas/inventory.schema.json",
+  "title": "Inventory",
+  "description": "Layer 1 inventory (SPEC §5.1) as produced by `avert inventory` from Postgres. Lifecycle status comes from the impact join (join.py) against persisted change events, never recomputed by a consumer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "repositories", "providers", "call_site_count", "attention_count", "dependencies"],
+  "properties": {
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "repositories": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "providers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "call_site_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "attention_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Call sites whose status is retiring or retired."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dependency" }
+    }
+  },
+  "$defs": {
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["surface", "value_binding", "status", "effective_at", "replacement", "locations"],
+      "properties": {
+        "surface": { "$ref": "surface_id.schema.json" },
+        "value_binding": {
+          "type": "string",
+          "enum": ["literal", "dynamic", "absent"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["current", "retiring", "retired", "unknown"],
+          "description": "current: no matching change event. retiring: definite match, effective date in the future. retired: definite match, effective date passed. unknown: value not statically resolved (possible match only)."
+        },
+        "effective_at": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "replacement": {
+          "type": ["string", "null"],
+          "description": "Replacement value from the earliest matching change event."
+        },
+        "locations": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/location" }
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "file_path", "line", "confidence"],
+      "properties": {
+        "repo": { "type": "string" },
+        "file_path": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}
