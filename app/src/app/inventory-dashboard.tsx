@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 
 import type { RepositorySummary } from "@/github/client";
-import type { Inventory, LifecycleStatus } from "@/inventory/inventory";
+import type { Dependency, Inventory } from "@/types/inventory";
 
-function Status({ value }: { value: LifecycleStatus }) {
+function Status({ value }: { value: Dependency["status"] }) {
   return <span className={`status status-${value}`}>{value}</span>;
 }
 
@@ -82,8 +82,8 @@ export function InventoryDashboard({ initialInventory }: { initialInventory: Inv
       <section className="metrics" aria-label="Inventory summary">
         <article><strong>{inventory.repositories.length}</strong><span>Repositories</span></article>
         <article><strong>{inventory.providers.length}</strong><span>Providers</span></article>
-        <article><strong>{inventory.callSiteCount}</strong><span>Call sites</span></article>
-        <article className="attention"><strong>{inventory.attentionCount}</strong><span>Need attention</span></article>
+        <article><strong>{inventory.call_site_count}</strong><span>Call sites</span></article>
+        <article className="attention"><strong>{inventory.attention_count}</strong><span>Need attention</span></article>
       </section>
 
       <section className="inventory">
@@ -102,11 +102,11 @@ export function InventoryDashboard({ initialInventory }: { initialInventory: Inv
               <thead><tr><th>Provider / surface</th><th>Model</th><th>Status</th><th>Locations</th></tr></thead>
               <tbody>
                 {inventory.dependencies.map((dependency) => (
-                  <tr key={`${dependency.provider}:${dependency.resource}:${dependency.model}:${dependency.valueBinding}`}>
-                    <td><b>{dependency.provider}</b><small>{dependency.resource}.{dependency.operation}</small></td>
-                    <td><code>{dependency.model ?? dependency.valueBinding}</code>{dependency.replacement && <small>→ {dependency.replacement}</small>}</td>
-                    <td><Status value={dependency.status} />{dependency.effectiveAt && <small>{dependency.effectiveAt}</small>}</td>
-                    <td><b>{dependency.locations.length}</b><small>{dependency.locations[0].filePath}:{dependency.locations[0].line}</small></td>
+                  <tr key={`${dependency.surface.provider}:${dependency.surface.resource}:${dependency.surface.value}:${dependency.value_binding}`}>
+                    <td><b>{dependency.surface.provider}</b><small>{dependency.surface.resource}.{dependency.surface.operation}</small></td>
+                    <td><code>{dependency.surface.value ?? dependency.value_binding}</code>{dependency.replacement && <small>→ {dependency.replacement}</small>}</td>
+                    <td><Status value={dependency.status} />{dependency.effective_at && <small>{dependency.effective_at}</small>}</td>
+                    <td><b>{dependency.locations.length}</b><small>{dependency.locations[0].file_path}:{dependency.locations[0].line}</small></td>
                   </tr>
                 ))}
               </tbody>

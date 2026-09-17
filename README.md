@@ -24,7 +24,7 @@ uv run avert experiment2 --out experiment2/     # pinned 20-repo corpus; writes 
 uv run avert experiment3 --out experiment3-report.json
 
 cd ../app
-cp .env.example .env.local       # add GitHub App read-only installation credentials
+cp .env.example .env.local       # GitHub App credentials + AVERT_DATABASE_URL
 npm ci && npm run dev            # inventory dashboard at http://localhost:3000
 ```
 

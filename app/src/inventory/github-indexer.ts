@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 
 import { x as extractTar } from "tar";
 
@@ -12,59 +10,27 @@ import {
   resolveRepositoryCommit,
   type GitHubRequester,
 } from "../github/client";
-import { inventoryFromJsonl, type Inventory } from "./inventory";
+import type { Inventory } from "@/types/inventory";
+import { indexIntoDatabase, loadInventory, syncRegistry, type IndexRequest } from "./engine";
 
-const execFileAsync = promisify(execFile);
+type IndexRunner = (sourcePath: string, request: IndexRequest) => Promise<Inventory>;
 
-export interface IndexRequest {
-  repo: string;
-  commit: string;
-}
+type ArchiveIndexer = (archive: Buffer, request: IndexRequest) => Promise<Inventory>;
 
-type IndexRunner = (
-  sourcePath: string,
-  outputPath: string,
-  request: IndexRequest,
-) => Promise<void>;
-
-type ArchiveIndexer = (
-  archive: Buffer,
-  request: IndexRequest,
-) => Promise<Inventory>;
-
-async function runEngineIndexer(
-  sourcePath: string,
-  outputPath: string,
-  request: IndexRequest,
-): Promise<void> {
-  const enginePath = path.resolve(process.cwd(), "../engine");
-  await execFileAsync(
-    "uv",
-    [
-      "run",
-      "avert",
-      "index",
-      sourcePath,
-      "--repo",
-      request.repo,
-      "--commit",
-      request.commit,
-      "--out",
-      outputPath,
-    ],
-    { cwd: enginePath, timeout: 120_000, maxBuffer: 1024 * 1024 },
-  );
+async function runEngine(sourcePath: string, request: IndexRequest): Promise<Inventory> {
+  await indexIntoDatabase(sourcePath, request);
+  await syncRegistry();
+  return loadInventory(request.installationId);
 }
 
 export async function indexRepositoryArchive(
   archive: Buffer,
   request: IndexRequest,
-  runIndexer: IndexRunner = runEngineIndexer,
+  runIndexer: IndexRunner = runEngine,
 ): Promise<Inventory> {
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "avert-index-"));
   const archivePath = path.join(temporaryRoot, "repository.tar.gz");
   const sourcePath = path.join(temporaryRoot, "repository");
-  const outputPath = path.join(temporaryRoot, "calls.jsonl");
   try {
     await mkdir(sourcePath);
     await writeFile(archivePath, archive);
@@ -78,8 +44,7 @@ export async function indexRepositoryArchive(
         return entry.type !== "SymbolicLink" && entry.type !== "Link";
       },
     });
-    await runIndexer(sourcePath, outputPath, request);
-    return inventoryFromJsonl(await readFile(outputPath, "utf8"));
+    return await runIndexer(sourcePath, request);
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -87,6 +52,7 @@ export async function indexRepositoryArchive(
 
 export async function indexGitHubRepository(
   github: GitHubRequester,
+  installationId: number,
   fullName: string,
   requestedRef?: string,
   archiveIndexer: ArchiveIndexer = indexRepositoryArchive,
@@ -99,5 +65,5 @@ export async function indexGitHubRepository(
   const ref = requestedRef ?? repository.defaultBranch;
   const commit = await resolveRepositoryCommit(github, owner, repo, ref);
   const archive = await downloadRepositoryArchive(github, owner, repo, commit);
-  return archiveIndexer(archive, { repo: repository.fullName, commit });
+  return archiveIndexer(archive, { repo: repository.fullName, commit, installationId });
 }

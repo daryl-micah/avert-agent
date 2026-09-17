@@ -7,6 +7,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { indexGitHubRepository, indexRepositoryArchive } from "../src/inventory/github-indexer";
 
+const inventory = {
+  generated_at: "2026-09-18T00:00:00Z",
+  repositories: ["acme/api"],
+  providers: [],
+  call_site_count: 0,
+  attention_count: 0,
+  dependencies: [],
+};
+
 describe("ephemeral GitHub indexing", () => {
   it("indexes an installation repository at its resolved commit", async () => {
     const sha = "b".repeat(40);
@@ -20,22 +29,16 @@ describe("ephemeral GitHub indexing", () => {
       }] } })
       .mockResolvedValueOnce({ data: { sha } })
       .mockResolvedValueOnce({ data: archive });
-    const archiveIndexer = vi.fn().mockResolvedValue({
-      repositories: ["acme/api"],
-      providers: [],
-      callSiteCount: 0,
-      attentionCount: 0,
-      dependencies: [],
-    });
+    const archiveIndexer = vi.fn().mockResolvedValue(inventory);
 
-    await indexGitHubRepository({ request }, "acme/api", undefined, archiveIndexer);
+    await indexGitHubRepository({ request }, 42, "acme/api", undefined, archiveIndexer);
 
     expect(request.mock.calls.map((call) => call[0])).toEqual([
       "GET /installation/repositories",
       "GET /repos/{owner}/{repo}/commits/{ref}",
       "GET /repos/{owner}/{repo}/tarball/{ref}",
     ]);
-    expect(archiveIndexer).toHaveBeenCalledWith(archive, { repo: "acme/api", commit: sha });
+    expect(archiveIndexer).toHaveBeenCalledWith(archive, { repo: "acme/api", commit: sha, installationId: 42 });
   });
 
   it("extracts, indexes, and removes the repository copy", async () => {
@@ -49,35 +52,18 @@ describe("ephemeral GitHub indexing", () => {
       await createTar({ gzip: true, cwd: fixtureRoot, file: archivePath }, ["archive-root"]);
       const archive = await readFile(archivePath);
 
-      const inventory = await indexRepositoryArchive(
+      const result = await indexRepositoryArchive(
         archive,
-        { repo: "acme/api", commit: "main" },
-        async (sourcePath, outputPath) => {
+        { repo: "acme/api", commit: "main", installationId: 42 },
+        async (sourcePath, request) => {
           extractedPath = sourcePath;
           await access(path.join(sourcePath, "src", "client.py"));
-          await writeFile(outputPath, JSON.stringify({
-            surface: {
-              provider: "openai",
-              resource: "chat.completions",
-              operation: "create",
-              field_path: "model",
-              value: "gpt-4-0613",
-            },
-            repo: "acme/api",
-            commit_sha: "main",
-            file_path: "src/client.py",
-            line_start: 1,
-            line_end: 1,
-            language: "python",
-            value_binding: "literal",
-            confidence: 1,
-            extractor: "tree_sitter.python",
-            file_content_hash: "a".repeat(64),
-          }) + "\n");
+          expect(request.installationId).toBe(42);
+          return inventory;
         },
       );
 
-      expect(inventory).toMatchObject({ callSiteCount: 1, attentionCount: 1 });
+      expect(result).toBe(inventory);
       await expect(access(extractedPath)).rejects.toThrow();
     } finally {
       await rm(fixtureRoot, { recursive: true, force: true });
