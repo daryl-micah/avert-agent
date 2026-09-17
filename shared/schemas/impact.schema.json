@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://avert.dev/schemas/impact.schema.json",
+  "title": "ImpactReport",
+  "description": "Layer 2 change feed (SPEC §5.2): every persisted change event joined to the call sites it affects, as produced by `avert impacts`. Events with no affected call sites are included with an empty match list so a consumer can distinguish 'nothing tracked' from 'not affected'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["generated_at", "impacts"],
+  "properties": {
+    "generated_at": { "type": "string", "format": "date-time" },
+    "impacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/impact" }
+    }
+  },
+  "$defs": {
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event", "blast_radius", "matches"],
+      "properties": {
+        "event": { "$ref": "change_event.schema.json" },
+        "blast_radius": {
+          "type": "string",
+          "description": "Plain-language statement, e.g. \"3 call sites in 2 files across 1 repository (1 possible)\"."
+        },
+        "matches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/match" }
+        }
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "file_path", "line_start", "line_end", "match_kind", "confidence"],
+      "properties": {
+        "repo": { "type": "string" },
+        "file_path": { "type": "string" },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 },
+        "match_kind": {
+          "type": "string",
+          "enum": ["definite", "possible"],
+          "description": "join.py: definite for a literal value match or a value-less event; possible for a dynamically bound value."
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

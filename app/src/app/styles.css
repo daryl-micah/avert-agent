@@ -62,6 +62,9 @@ code { font: 12px monospace; }
 .status-retiring { color: #8a5a08; background: #f8e9b8; }
 .status-current { color: var(--green); background: #dcebdc; }
 .status-unknown { color: var(--muted); background: #e8e7e1; }
+.status-breaking { color: #9a3c2b; background: #f6ddd5; }
+.status-warning { color: #8a5a08; background: #f8e9b8; }
+.status-info { color: var(--muted); background: #e8e7e1; }
 .empty { padding: 55px; border: 1px dashed #a9b0aa; text-align: center; }
 .empty h3 { margin: 0 0 8px; font: 500 24px Georgia, serif; }
 .empty p { margin: 0; color: var(--muted); }
