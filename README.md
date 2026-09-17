@@ -16,7 +16,10 @@ installation-scoped, immutable-revision repository indexing.
 docker compose up -d              # Postgres
 cd engine && uv sync
 uv run pytest
-uv run avert index <path> --out calls.jsonl
+uv run avert index <path> --database $AVERT_DATABASE_URL   # incremental, persisted
+uv run avert registry --database $AVERT_DATABASE_URL        # load lifecycle events
+uv run avert inventory --database $AVERT_DATABASE_URL       # Layer 1 inventory JSON
+uv run avert index <path> --out calls.jsonl                 # one-off JSONL, no database
 uv run avert experiment2 --out experiment2/     # pinned 20-repo corpus; writes label templates
 uv run avert experiment3 --out experiment3-report.json
 
@@ -24,6 +27,10 @@ cd ../app
 cp .env.example .env.local       # add GitHub App read-only installation credentials
 npm ci && npm run dev            # inventory dashboard at http://localhost:3000
 ```
+
+`AVERT_DATABASE_URL` is `postgresql://avert:avert@localhost:5432/avert` for the compose service.
+Migrations apply automatically on connect. The inventory's lifecycle status is the impact join
+(`engine/avert/join.py`) evaluated per call site; its shape is `shared/schemas/inventory.schema.json`.
 
 `experiment2` runs the extractor over the pinned public-repository corpus in
 `engine/tests/fixtures/experiment2/corpus.json`. Each unlabelled repository gets a

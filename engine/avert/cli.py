@@ -5,6 +5,10 @@ import shlex
 import sys
 from pathlib import Path
 
+import psycopg
+
+from avert import db
+from avert.detect.events import fingerprint
 from avert.detect.registry import load_events
 from avert.detect.sdk_diff.acquire import downloaded_pair
 from avert.detect.sdk_diff.diff import diff_artifacts
@@ -13,6 +17,8 @@ from avert.experiment2 import load_corpus, run_corpus
 from avert.experiment3 import format_report as format_experiment3_report
 from avert.experiment3 import run_experiment
 from avert.index import run_index
+from avert.index.incremental import incremental_index
+from avert.inventory import build_inventory
 from avert.models.call_site_schema import CallSite
 from avert.models.change_event_schema import ChangeEvent
 from avert.patch import generate_model_replacement
@@ -27,8 +33,18 @@ def cmd_index(args: argparse.Namespace) -> int:
         return 1
 
     repo = args.repo or root.name
-    call_sites = run_index(root, repo=repo, commit=args.commit)
+    if args.database:
+        with _connect(args.database) as conn:
+            stats = incremental_index(
+                conn, root, repo=repo, commit=args.commit, github_installation_id=args.installation,
+            )
+        print(
+            f"{repo}: {stats.parsed} files parsed, {stats.skipped} unchanged, "
+            f"{stats.deleted} removed, {stats.call_sites_written} call sites written"
+        )
+        return 0
 
+    call_sites = run_index(root, repo=repo, commit=args.commit)
     out_path = Path(args.out)
     with out_path.open("w") as f:
         for cs in call_sites:
@@ -36,6 +52,12 @@ def cmd_index(args: argparse.Namespace) -> int:
 
     print(f"{len(call_sites)} call sites -> {out_path}")
     return 0
+
+
+def _connect(dsn: str) -> psycopg.Connection:
+    conn = psycopg.connect(dsn)
+    db.apply_migrations(conn)
+    return conn
 
 
 def cmd_score(args: argparse.Namespace) -> int:
@@ -72,9 +94,28 @@ def _write_events(events, out_path: Path) -> None:
 
 def cmd_registry(args: argparse.Namespace) -> int:
     events = load_events()
+    if args.database:
+        with _connect(args.database) as conn:
+            for event in events:
+                db.upsert_change_event(conn, event, fingerprint=fingerprint(event))
+            conn.commit()
+        print(f"{len(events)} lifecycle events -> {args.database}")
+        return 0
     out_path = Path(args.out)
     _write_events(events, out_path)
     print(f"{len(events)} lifecycle events -> {out_path}")
+    return 0
+
+
+def cmd_inventory(args: argparse.Namespace) -> int:
+    with _connect(args.database) as conn:
+        inventory = build_inventory(conn, github_installation_id=args.installation)
+    payload = inventory.model_dump_json(indent=2) + "\n"
+    if args.out:
+        Path(args.out).write_text(payload)
+        print(f"{inventory.call_site_count} call sites -> {args.out}", file=sys.stderr)
+    else:
+        sys.stdout.write(payload)
     return 0
 
 
@@ -165,9 +206,14 @@ def main() -> int:
 
     index_parser = subparsers.add_parser("index", help="Extract call sites from a repository")
     index_parser.add_argument("path", help="Repository root to index")
-    index_parser.add_argument("--out", required=True, help="Output JSONL path")
+    index_target = index_parser.add_mutually_exclusive_group(required=True)
+    index_target.add_argument("--out", help="Output JSONL path")
+    index_target.add_argument("--database", help="Postgres DSN; persists incrementally (SPEC §8.2)")
     index_parser.add_argument("--repo", default=None, help="Repo identifier (defaults to dir name)")
     index_parser.add_argument("--commit", default=None, help="Commit SHA being indexed")
+    index_parser.add_argument(
+        "--installation", type=int, default=None, help="GitHub App installation id (with --database)"
+    )
     index_parser.set_defaults(func=cmd_index)
 
     score_parser = subparsers.add_parser("score", help="Score predictions against ground-truth labels")
@@ -183,8 +229,18 @@ def main() -> int:
     label_parser.set_defaults(func=cmd_label)
 
     registry_parser = subparsers.add_parser("registry", help="Export model lifecycle events")
-    registry_parser.add_argument("--out", required=True, help="Output JSONL path")
+    registry_target = registry_parser.add_mutually_exclusive_group(required=True)
+    registry_target.add_argument("--out", help="Output JSONL path")
+    registry_target.add_argument("--database", help="Postgres DSN; upserts events by fingerprint")
     registry_parser.set_defaults(func=cmd_registry)
+
+    inventory_parser = subparsers.add_parser(
+        "inventory", help="Build the Layer 1 inventory from Postgres"
+    )
+    inventory_parser.add_argument("--database", required=True, help="Postgres DSN")
+    inventory_parser.add_argument("--installation", type=int, default=None, help="Scope to one installation")
+    inventory_parser.add_argument("--out", default=None, help="Output JSON path (defaults to stdout)")
+    inventory_parser.set_defaults(func=cmd_inventory)
 
     diff_parser = subparsers.add_parser("sdk-diff", help="Diff two published SDK versions")
     diff_parser.add_argument("--ecosystem", choices=["pypi", "npm"], required=True)

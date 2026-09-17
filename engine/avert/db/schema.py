@@ -15,23 +15,44 @@ from avert.models.change_event_schema import ChangeEvent
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
-def apply_migrations(conn: psycopg.Connection) -> None:
-    """Applies every migrations/*.sql file in order. Week 1 has one
-    migration and no tracking table — safe to call once against a fresh
-    database; not idempotent against an already-migrated one."""
+def apply_migrations(conn: psycopg.Connection) -> list[str]:
+    """Applies every migrations/*.sql file not yet recorded in
+    schema_migration, in filename order. Idempotent; returns the names
+    applied this call."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migration (
+            name       TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """
+    )
+    applied = {row[0] for row in conn.execute("SELECT name FROM schema_migration").fetchall()}
+    names: list[str] = []
     for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        if path.name in applied:
+            continue
         conn.execute(path.read_text())
+        conn.execute("INSERT INTO schema_migration (name) VALUES (%s)", (path.name,))
+        names.append(path.name)
     conn.commit()
+    return names
 
 
-def upsert_repository(conn: psycopg.Connection, name: str) -> int:
+def upsert_repository(
+    conn: psycopg.Connection, name: str, *, github_installation_id: int | None = None
+) -> int:
+    """A re-index from a local path (installation NULL) keeps whatever
+    installation previously indexed the repository."""
     row = conn.execute(
         """
-        INSERT INTO repository (name) VALUES (%s)
-        ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        INSERT INTO repository (name, github_installation_id) VALUES (%s, %s)
+        ON CONFLICT (name) DO UPDATE
+            SET github_installation_id = COALESCE(EXCLUDED.github_installation_id,
+                                                  repository.github_installation_id)
         RETURNING id
         """,
-        (name,),
+        (name, github_installation_id),
     ).fetchone()
     return row[0]
 

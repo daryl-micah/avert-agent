@@ -27,12 +27,17 @@ class IncrementalStats:
 
 
 def incremental_index(
-    conn: psycopg.Connection, root: Path, *, repo: str, commit: str | None = None
+    conn: psycopg.Connection,
+    root: Path,
+    *,
+    repo: str,
+    commit: str | None = None,
+    github_installation_id: int | None = None,
 ) -> IncrementalStats:
     root = root.resolve()
     stats = IncrementalStats()
 
-    repository_id = db.upsert_repository(conn, repo)
+    repository_id = db.upsert_repository(conn, repo, github_installation_id=github_installation_id)
     previous_hashes = db.indexed_file_hashes(conn, repository_id)
 
     seen_paths: set[str] = set()
