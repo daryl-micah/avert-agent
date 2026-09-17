@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import type { ImpactReport } from "@/types/impact";
 import type { Inventory } from "@/types/inventory";
 
 const execFileAsync = promisify(execFile);
@@ -53,4 +54,12 @@ export async function loadInventory(installationId: number): Promise<Inventory> 
     30_000,
   );
   return JSON.parse(stdout) as Inventory;
+}
+
+export async function loadImpacts(installationId: number): Promise<ImpactReport> {
+  const stdout = await avert(
+    ["impacts", "--database", databaseUrl(), "--installation", String(installationId)],
+    30_000,
+  );
+  return JSON.parse(stdout) as ImpactReport;
 }

@@ -8,6 +8,7 @@ from pathlib import Path
 import psycopg
 
 from avert import db
+from avert.alerts import deliver_alerts
 from avert.detect.events import fingerprint
 from avert.detect.registry import load_events
 from avert.detect.sdk_diff.acquire import downloaded_pair
@@ -16,6 +17,7 @@ from avert.experiment2 import format_report as format_experiment2_report
 from avert.experiment2 import load_corpus, run_corpus
 from avert.experiment3 import format_report as format_experiment3_report
 from avert.experiment3 import run_experiment
+from avert.impacts import build_impact_report
 from avert.index import run_index
 from avert.index.incremental import incremental_index
 from avert.inventory import build_inventory
@@ -176,6 +178,25 @@ def cmd_remediate(args: argparse.Namespace) -> int:
     return 0 if verified == len(proposals) else 2
 
 
+def cmd_impacts(args: argparse.Namespace) -> int:
+    with _connect(args.database) as conn:
+        report = build_impact_report(conn, github_installation_id=args.installation)
+    payload = report.model_dump_json(indent=2) + "\n"
+    if args.out:
+        Path(args.out).write_text(payload)
+        print(f"{len(report.impacts)} change events -> {args.out}", file=sys.stderr)
+    else:
+        sys.stdout.write(payload)
+    return 0
+
+
+def cmd_alerts(args: argparse.Namespace) -> int:
+    with _connect(args.database) as conn:
+        stats = deliver_alerts(conn, webhook_url=args.webhook_url)
+    print(f"{stats.delivered} alerts delivered, {stats.skipped} already delivered")
+    return 0
+
+
 def cmd_experiment2(args: argparse.Namespace) -> int:
     entries = load_corpus(Path(args.corpus) if args.corpus else None)
     if args.only:
@@ -264,6 +285,21 @@ def main() -> int:
     remediate_parser.add_argument("--repo", default=None, help="Repo identifier (defaults to directory name)")
     remediate_parser.add_argument("--commit", default=None, help="Commit SHA being remediated")
     remediate_parser.set_defaults(func=cmd_remediate)
+
+    impacts_parser = subparsers.add_parser(
+        "impacts", help="Change events joined to affected call sites (Layer 2 feed)"
+    )
+    impacts_parser.add_argument("--database", required=True, help="Postgres DSN")
+    impacts_parser.add_argument("--installation", type=int, default=None, help="Scope to one installation")
+    impacts_parser.add_argument("--out", default=None, help="Output JSON path (defaults to stdout)")
+    impacts_parser.set_defaults(func=cmd_impacts)
+
+    alerts_parser = subparsers.add_parser(
+        "alerts", help="Deliver one webhook alert per affected (change event, repository)"
+    )
+    alerts_parser.add_argument("--database", required=True, help="Postgres DSN")
+    alerts_parser.add_argument("--webhook-url", required=True, help="Receives a JSON POST per alert")
+    alerts_parser.set_defaults(func=cmd_alerts)
 
     corpus_parser = subparsers.add_parser(
         "experiment2", help="Run the extractor over the pinned public-repository corpus"

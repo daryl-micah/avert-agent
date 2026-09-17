@@ -210,3 +210,72 @@ def test_local_reindex_keeps_installation(conn, tmp_path):
 
     row = conn.execute("SELECT github_installation_id FROM repository").fetchone()
     assert row[0] == 7
+
+
+def _seed_two_repositories(conn, tmp_path):
+    for name, installation, body in (
+        ("a", 1, 'client.chat.completions.create(model="gpt-4-0613", messages=[])\n'),
+        ("b", 2, "client.chat.completions.create(model=chosen, messages=[])\n"),
+    ):
+        root = tmp_path / name
+        (root / "src").mkdir(parents=True)
+        (root / "src" / "llm.py").write_text("from openai import OpenAI\nclient = OpenAI()\n" + body)
+        incremental_index(conn, root, repo=f"acme/{name}", github_installation_id=installation)
+    for event in load_events():
+        db.upsert_change_event(conn, event, fingerprint=fingerprint(event))
+    conn.commit()
+
+
+def test_impact_report_states_blast_radius_per_event(conn, tmp_path):
+    from avert.impacts import build_impact_report
+
+    _seed_two_repositories(conn, tmp_path)
+
+    report = build_impact_report(conn)
+    by_model = {impact.event.surface.value: impact for impact in report.impacts}
+
+    assert len(report.impacts) == 10
+    gpt4 = by_model["gpt-4-0613"]
+    assert gpt4.blast_radius == "2 call sites in 2 files across 2 repositories (1 possible)"
+    assert [(m.repo, m.match_kind) for m in gpt4.matches] == [
+        ("acme/a", "definite"), ("acme/b", "possible"),
+    ]
+    assert by_model["claude-3-opus-20240229"].blast_radius == "no tracked call sites affected"
+
+    scoped = build_impact_report(conn, github_installation_id=1)
+    scoped_gpt4 = {i.event.surface.value: i for i in scoped.impacts}["gpt-4-0613"]
+    assert [m.repo for m in scoped_gpt4.matches] == ["acme/a"]
+    assert scoped_gpt4.blast_radius == "1 call site in 1 file across 1 repository"
+
+
+def test_alerts_deliver_once_per_event_and_repository(conn, tmp_path):
+    from avert.alerts import deliver_alerts
+
+    _seed_two_repositories(conn, tmp_path)
+    sent: list[tuple[str, dict]] = []
+
+    first = deliver_alerts(conn, webhook_url="https://hooks.example/x", send=lambda u, p: sent.append((u, p)))
+    second = deliver_alerts(conn, webhook_url="https://hooks.example/x", send=lambda u, p: sent.append((u, p)))
+
+    assert (first.delivered, first.skipped) == (2, 0)
+    assert (second.delivered, second.skipped) == (0, 2)
+    assert len(sent) == 2
+    url, payload = sent[0]
+    assert url == "https://hooks.example/x"
+    assert payload["repo"] == "acme/a"
+    assert payload["replacement"] == "gpt-5.6-sol"
+    assert payload["text"].startswith("[breaking] acme/a: gpt-4-0613 retires; migrate to gpt-5.6-sol. effective 2026-10-23.")
+    assert "1 call site in 1 file across 1 repository. Migrate to gpt-5.6-sol." in payload["text"]
+
+
+def test_failed_delivery_is_not_recorded(conn, tmp_path):
+    from avert.alerts import deliver_alerts
+
+    _seed_two_repositories(conn, tmp_path)
+
+    def failing(url, payload):
+        raise RuntimeError("webhook returned 500")
+
+    with pytest.raises(RuntimeError):
+        deliver_alerts(conn, webhook_url="https://hooks.example/x", send=failing)
+    assert conn.execute("SELECT count(*) FROM alert_delivery").fetchone()[0] == 0

@@ -44,7 +44,8 @@ uv run avert inventory --database $AVERT_DATABASE_URL
 ```
 
 Endpoints: `GET /api/github/repositories`, `POST /api/github/repositories/index`,
-`POST /api/github/webhook`, `GET /api/inventory`. The server runtime must have the engine's `uv`
+`POST /api/github/webhook`, `GET /api/inventory`, `GET /api/impacts` (the change feed rendered in
+the dashboard's Changes section). The server runtime must have the engine's `uv`
 environment and Postgres reachable. Webhook re-indexing runs inline after the response; a queue
 and worker (STRUCTURE.md `db/queue.py`, `workers/`) are still to come.
 

@@ -3,14 +3,22 @@
 import { useEffect, useState } from "react";
 
 import type { RepositorySummary } from "@/github/client";
+import type { ImpactReport } from "@/types/impact";
 import type { Dependency, Inventory } from "@/types/inventory";
 
 function Status({ value }: { value: Dependency["status"] }) {
   return <span className={`status status-${value}`}>{value}</span>;
 }
 
-export function InventoryDashboard({ initialInventory }: { initialInventory: Inventory }) {
+export function InventoryDashboard({
+  initialInventory,
+  initialImpacts,
+}: {
+  initialInventory: Inventory;
+  initialImpacts: ImpactReport;
+}) {
   const [inventory, setInventory] = useState(initialInventory);
+  const [impacts, setImpacts] = useState(initialImpacts);
   const [repositories, setRepositories] = useState<RepositorySummary[]>([]);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [indexing, setIndexing] = useState<string | null>(null);
@@ -37,12 +45,16 @@ export function InventoryDashboard({ initialInventory }: { initialInventory: Inv
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Could not index repository");
       setInventory(data as Inventory);
+      const impactResponse = await fetch("/api/impacts");
+      if (impactResponse.ok) setImpacts(await impactResponse.json() as ImpactReport);
     } catch (error) {
       setConnectionError(error instanceof Error ? error.message : "Could not index repository");
     } finally {
       setIndexing(null);
     }
   }
+
+  const affected = impacts.impacts.filter((impact) => impact.matches.length > 0);
 
   return (
     <main>
@@ -107,6 +119,35 @@ export function InventoryDashboard({ initialInventory }: { initialInventory: Inv
                     <td><code>{dependency.surface.value ?? dependency.value_binding}</code>{dependency.replacement && <small>→ {dependency.replacement}</small>}</td>
                     <td><Status value={dependency.status} />{dependency.effective_at && <small>{dependency.effective_at}</small>}</td>
                     <td><b>{dependency.locations.length}</b><small>{dependency.locations[0].file_path}:{dependency.locations[0].line}</small></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="inventory" aria-label="Change feed">
+        <div className="section-heading">
+          <div><span className="eyebrow">Change feed</span><h2>Changes</h2></div>
+          <span className="repo-list">{affected.length} of {impacts.impacts.length} events affect this inventory</span>
+        </div>
+        {affected.length === 0 ? (
+          <div className="empty">
+            <h3>Nothing affected</h3>
+            <p>No tracked change event matches an indexed call site.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Change</th><th>Effective</th><th>Blast radius</th><th>First match</th></tr></thead>
+              <tbody>
+                {affected.map((impact) => (
+                  <tr key={`${impact.event.surface.provider}:${impact.event.surface.value}:${impact.event.change_type}`}>
+                    <td><b>{impact.event.surface.provider}</b><small>{impact.event.summary ?? impact.event.change_type}</small></td>
+                    <td><span className={`status status-${impact.event.severity}`}>{impact.event.severity}</span>{impact.event.effective_at && <small>{impact.event.effective_at}</small>}</td>
+                    <td>{impact.blast_radius}</td>
+                    <td><code>{impact.matches[0].match_kind}</code><small>{impact.matches[0].file_path}:{impact.matches[0].line_start}</small></td>
                   </tr>
                 ))}
               </tbody>
