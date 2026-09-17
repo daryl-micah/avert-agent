@@ -21,7 +21,8 @@ uv run avert registry --database $AVERT_DATABASE_URL        # load lifecycle eve
 uv run avert inventory --database $AVERT_DATABASE_URL       # Layer 1 inventory JSON
 uv run avert index <path> --out calls.jsonl                 # one-off JSONL, no database
 uv run avert experiment2 --out experiment2/     # pinned 20-repo corpus; writes label templates
-uv run avert experiment3 --out experiment3-report.json
+uv run avert experiment3 --out experiment3-report.json                 # synthetic corpus (offline)
+uv run avert experiment3 --cases engine/tests/fixtures/experiment3/corpus.json --out report.json  # pinned real repositories
 
 cd ../app
 cp .env.example .env.local       # GitHub App credentials + AVERT_DATABASE_URL
@@ -38,6 +39,9 @@ Migrations apply automatically on connect. The inventory's lifecycle status is t
 it under a labels directory, and re-run with `--labels <dir>` to get precision and recall. The
 decision rule (SPEC §15) is <85% recall.
 
-`experiment3` mechanically verifies the committed ten-case historical model-deprecation corpus. Its merge-readiness rate remains pending until an experienced engineer supplies manual grades (`merge_as_is`, `merge_with_edits`, or `wrong`).
+`experiment3` mechanically verifies a model-deprecation corpus: the committed synthetic ten cases by
+default, or ten pinned public repositories with `--cases .../corpus.json` (first run recorded in
+`docs/experiments/experiment3-2026-09-18.md`: 7/10). Its merge-readiness rate remains pending until an
+experienced engineer supplies manual grades (`merge_as_is`, `merge_with_edits`, or `wrong`).
 
 See [app/README.md](app/README.md) for the Week 4 local demo flow and its current boundaries.
