@@ -1,0 +1,113 @@
+{
+  "cases": [
+    {
+      "case_id": "self-operating-computer-claude-3-opus",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 2,
+      "proposals": 2,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "operate/models/apis.py"
+      ]
+    },
+    {
+      "case_id": "claude-engineer-sonnet-3-5-october",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 1,
+      "proposals": 1,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "tools/toolcreator.py"
+      ]
+    },
+    {
+      "case_id": "olmocr-sonnet-3-7",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 2,
+      "proposals": 2,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "olmocr/bench/miners/mine_multi_column.py"
+      ]
+    },
+    {
+      "case_id": "fastrtc-haiku-3-5",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 2,
+      "proposals": 2,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "demo/talk_to_claude/app.py",
+        "demo/webrtc_vs_websocket/app.py"
+      ]
+    },
+    {
+      "case_id": "fasthtml-example-haiku-3",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 2,
+      "proposals": 2,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "03_pictionary/main.py",
+        "03_pictionary/moodle_demo/main.py"
+      ]
+    },
+    {
+      "case_id": "ffufai-sonnet-4",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 2,
+      "proposals": 2,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "ffufai.py"
+      ]
+    },
+    {
+      "case_id": "headroom-opus-4",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 0,
+      "proposals": 0,
+      "verified": false,
+      "grade": null,
+      "files": []
+    },
+    {
+      "case_id": "longrag-sonnet-3-5-june",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 1,
+      "proposals": 1,
+      "verified": true,
+      "grade": null,
+      "files": [
+        "utils/claude_inference.py"
+      ]
+    },
+    {
+      "case_id": "ibm-compositional-gpt-4-0613",
+      "source_url": "https://developers.openai.com/api/docs/deprecations",
+      "matching_sites": 0,
+      "proposals": 0,
+      "verified": false,
+      "grade": null,
+      "files": []
+    },
+    {
+      "case_id": "vision-agents-opus-4-1",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      "matching_sites": 0,
+      "proposals": 0,
+      "verified": false,
+      "grade": null,
+      "files": []
+    }
+  ],
+  "all_verified": false,
+  "graded_cases": 0,
+  "merge_as_is_rate": null
+}

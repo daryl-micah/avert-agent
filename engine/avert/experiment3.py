@@ -1,4 +1,10 @@
-"""Week-three historical model-deprecation remediation experiment."""
+"""Week-three historical model-deprecation remediation experiment.
+
+Two case shapes share one runner: the committed synthetic corpus
+(tests/fixtures/experiment3/cases.json, inline ``source``) that the offline
+test suite locks, and the pinned public-repository corpus (corpus.json,
+``url`` + ``commit``) that measures the patch generator against real code.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from avert.detect.registry import load_events
+from avert.experiment2 import CorpusEntry, fetch_pinned
 from avert.index import run_index
 from avert.patch import generate_model_replacement
 from avert.verify import verify_proposal
@@ -20,9 +27,14 @@ _VALID_GRADES = {"merge_as_is", "merge_with_edits", "wrong"}
 class ExperimentCaseResult:
     case_id: str
     source_url: str
+    matching_sites: int
+    """Call sites naming the retired model, whatever their value binding."""
     proposals: int
+    """Sites the literal-only generator could patch; the gap to
+    matching_sites is what dynamic bindings cost (SPEC §8.3)."""
     verified: bool
     grade: str | None
+    files: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -60,23 +72,32 @@ def run_experiment(
     results: list[ExperimentCaseResult] = []
     for case in cases:
         with tempfile.TemporaryDirectory(prefix="avert-experiment3-") as temp_dir:
-            root = Path(temp_dir)
-            file_path = Path(case["file_path"])
-            target = root / file_path
-            target.parent.mkdir(parents=True)
-            target.write_text(case["source"])
+            root = Path(temp_dir) / "repo"
+            if "url" in case:
+                fetch_pinned(CorpusEntry(repo=case["repo"], url=case["url"], commit=case["commit"]), root)
+            else:
+                target = root / case["file_path"]
+                target.parent.mkdir(parents=True)
+                target.write_text(case["source"])
             event = _event_for(case)
+            sites = run_index(root, repo=f"experiment3/{case['id']}")
+            matching = [site for site in sites if site.surface.value == event.surface.value]
             proposals = [
                 proposal
-                for call_site in run_index(root, repo=f"experiment3/{case['id']}")
+                for call_site in matching
                 if (proposal := generate_model_replacement(root, event, call_site)) is not None
             ]
-            evidence = [verify_proposal(root, event, proposal) for proposal in proposals]
+            checks = [tuple(check) for check in case.get("checks", [])]
+            evidence = [
+                verify_proposal(root, event, proposal, commands=checks) for proposal in proposals
+            ]
             results.append(
                 ExperimentCaseResult(
-                    case_id=case["id"], source_url=str(event.provenance.source_url), proposals=len(proposals),
-                    verified=len(proposals) == 1 and all(item.passed for item in evidence),
+                    case_id=case["id"], source_url=str(event.provenance.source_url),
+                    matching_sites=len(matching), proposals=len(proposals),
+                    verified=bool(proposals) and all(item.passed for item in evidence),
                     grade=grades.get(case["id"]),
+                    files=tuple(sorted({p.file_path for p in proposals})),
                 )
             )
     return ExperimentReport(cases=tuple(results))
@@ -85,11 +106,18 @@ def run_experiment(
 def format_report(report: ExperimentReport) -> str:
     verified = sum(case.verified for case in report.cases)
     rate = "pending" if report.merge_as_is_rate is None else f"{report.merge_as_is_rate:.0%}"
-    return (
-        f"{verified}/{len(report.cases)} cases mechanically verified\n"
-        f"{report.graded_cases}/{len(report.cases)} cases manually graded\n"
-        f"merge-as-is rate: {rate}"
-    )
+    lines = [
+        f"{case.case_id:<40} sites={case.matching_sites:<3} proposals={case.proposals:<3} "
+        f"{'verified' if case.verified else 'NOT verified'}"
+        for case in report.cases
+    ]
+    lines += [
+        "",
+        f"{verified}/{len(report.cases)} cases mechanically verified",
+        f"{report.graded_cases}/{len(report.cases)} cases manually graded",
+        f"merge-as-is rate: {rate}",
+    ]
+    return "\n".join(lines)
 
 
 def _event_for(case: dict):

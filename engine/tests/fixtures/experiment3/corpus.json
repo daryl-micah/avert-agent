@@ -1,0 +1,82 @@
+[
+  {
+    "id": "self-operating-computer-claude-3-opus",
+    "provider": "anthropic",
+    "model": "claude-3-opus-20240229",
+    "repo": "OthersideAI/self-operating-computer",
+    "url": "https://github.com/OthersideAI/self-operating-computer.git",
+    "commit": "fac568eea7da5e24f8bc91bfc1211b65679177eb"
+  },
+  {
+    "id": "claude-engineer-sonnet-3-5-october",
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20241022",
+    "repo": "Doriandarko/claude-engineer",
+    "url": "https://github.com/Doriandarko/claude-engineer.git",
+    "commit": "0a9e4b309bf6b2eda05dcf073cf5094beb08e0c8"
+  },
+  {
+    "id": "olmocr-sonnet-3-7",
+    "provider": "anthropic",
+    "model": "claude-3-7-sonnet-20250219",
+    "repo": "allenai/olmocr",
+    "url": "https://github.com/allenai/olmocr.git",
+    "commit": "f7cfe4c22098b154c76b6ec950d1c0a464eecf8d"
+  },
+  {
+    "id": "fastrtc-haiku-3-5",
+    "provider": "anthropic",
+    "model": "claude-3-5-haiku-20241022",
+    "repo": "gradio-app/fastrtc",
+    "url": "https://github.com/gradio-app/fastrtc.git",
+    "commit": "f9395ea2c6515bcb52230de19362ca73e1661855"
+  },
+  {
+    "id": "fasthtml-example-haiku-3",
+    "provider": "anthropic",
+    "model": "claude-3-haiku-20240307",
+    "repo": "AnswerDotAI/fasthtml-example",
+    "url": "https://github.com/AnswerDotAI/fasthtml-example.git",
+    "commit": "21200ffdd654f4a06b0850970c5bdfaa75e4c25b"
+  },
+  {
+    "id": "ffufai-sonnet-4",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "repo": "jthack/ffufai",
+    "url": "https://github.com/jthack/ffufai.git",
+    "commit": "2ef1ae59ec70787e9164f3d1f33edd44b97b5491"
+  },
+  {
+    "id": "headroom-opus-4",
+    "provider": "anthropic",
+    "model": "claude-opus-4-20250514",
+    "repo": "headroomlabs-ai/headroom",
+    "url": "https://github.com/headroomlabs-ai/headroom.git",
+    "commit": "3dfa7daadbabfc60707b695c1d992066dc71a41b"
+  },
+  {
+    "id": "longrag-sonnet-3-5-june",
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet-20240620",
+    "repo": "TIGER-AI-Lab/LongRAG",
+    "url": "https://github.com/TIGER-AI-Lab/LongRAG.git",
+    "commit": "ba92f957f4e39b98f9c79c42f751228b95ee086f"
+  },
+  {
+    "id": "ibm-compositional-gpt-4-0613",
+    "provider": "openai",
+    "model": "gpt-4-0613",
+    "repo": "IBM/limitations-lm-algorithmic-compositional-learning",
+    "url": "https://github.com/IBM/limitations-lm-algorithmic-compositional-learning.git",
+    "commit": "29f8d2a183345507de2a951805aebad3cb76ec08"
+  },
+  {
+    "id": "vision-agents-opus-4-1",
+    "provider": "anthropic",
+    "model": "claude-opus-4-1-20250805",
+    "repo": "GetStream/Vision-Agents",
+    "url": "https://github.com/GetStream/Vision-Agents.git",
+    "commit": "ba2fbf1de41327eae2bef8e2f83429054109fa4a"
+  }
+]
