@@ -17,12 +17,19 @@ docker compose up -d              # Postgres
 cd engine && uv sync
 uv run pytest
 uv run avert index <path> --out calls.jsonl
+uv run avert experiment2 --out experiment2/     # pinned 20-repo corpus; writes label templates
 uv run avert experiment3 --out experiment3-report.json
 
 cd ../app
 cp .env.example .env.local       # add GitHub App read-only installation credentials
 npm ci && npm run dev            # inventory dashboard at http://localhost:3000
 ```
+
+`experiment2` runs the extractor over the pinned public-repository corpus in
+`engine/tests/fixtures/experiment2/corpus.json`. Each unlabelled repository gets a
+`<owner>__<repo>.labels.jsonl` template; review it (flip `expect_detected`, hand-add misses), commit
+it under a labels directory, and re-run with `--labels <dir>` to get precision and recall. The
+decision rule (SPEC §15) is <85% recall.
 
 `experiment3` mechanically verifies the committed ten-case historical model-deprecation corpus. Its merge-readiness rate remains pending until an experienced engineer supplies manual grades (`merge_as_is`, `merge_with_edits`, or `wrong`).
 

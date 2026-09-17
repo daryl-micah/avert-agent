@@ -8,6 +8,8 @@ from pathlib import Path
 from avert.detect.registry import load_events
 from avert.detect.sdk_diff.acquire import downloaded_pair
 from avert.detect.sdk_diff.diff import diff_artifacts
+from avert.experiment2 import format_report as format_experiment2_report
+from avert.experiment2 import load_corpus, run_corpus
 from avert.experiment3 import format_report as format_experiment3_report
 from avert.experiment3 import run_experiment
 from avert.index import run_index
@@ -133,6 +135,20 @@ def cmd_remediate(args: argparse.Namespace) -> int:
     return 0 if verified == len(proposals) else 2
 
 
+def cmd_experiment2(args: argparse.Namespace) -> int:
+    entries = load_corpus(Path(args.corpus) if args.corpus else None)
+    if args.only:
+        entries = [entry for entry in entries if entry.repo in set(args.only)]
+    report = run_corpus(
+        entries,
+        out_dir=Path(args.out),
+        labels_dir=Path(args.labels) if args.labels else None,
+    )
+    (Path(args.out) / "report.json").write_text(report.to_json())
+    print(format_experiment2_report(report))
+    return 0 if all(r.error is None for r in report.repositories) else 1
+
+
 def cmd_experiment3(args: argparse.Namespace) -> int:
     report = run_experiment(
         Path(args.cases) if args.cases else None,
@@ -192,6 +208,15 @@ def main() -> int:
     remediate_parser.add_argument("--repo", default=None, help="Repo identifier (defaults to directory name)")
     remediate_parser.add_argument("--commit", default=None, help="Commit SHA being remediated")
     remediate_parser.set_defaults(func=cmd_remediate)
+
+    corpus_parser = subparsers.add_parser(
+        "experiment2", help="Run the extractor over the pinned public-repository corpus"
+    )
+    corpus_parser.add_argument("--out", required=True, help="Directory for predictions, label templates, report")
+    corpus_parser.add_argument("--corpus", default=None, help="Corpus JSON (defaults to the committed manifest)")
+    corpus_parser.add_argument("--labels", default=None, help="Directory of reviewed <owner>__<repo>.labels.jsonl")
+    corpus_parser.add_argument("--only", action="append", default=[], help="Restrict to a repository (repeatable)")
+    corpus_parser.set_defaults(func=cmd_experiment2)
 
     experiment_parser = subparsers.add_parser(
         "experiment3", help="Run the historical model-deprecation remediation corpus"

@@ -1,0 +1,258 @@
+{
+  "repositories": [
+    {
+      "repo": "simonw/llm",
+      "commit": "1df47ddcac20d58726a993949da8ef84f4081085",
+      "call_sites": 9,
+      "by_value_binding": {
+        "absent": 1,
+        "dynamic": 8
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "Aider-AI/aider",
+      "commit": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "call_sites": 0,
+      "by_value_binding": {},
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "assafelovic/gpt-researcher",
+      "commit": "6f998577d547b1e54ec662dac63583aa11e3b84b",
+      "call_sites": 0,
+      "by_value_binding": {},
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "567-labs/instructor",
+      "commit": "e12f8b49203b0c1f253d27c1e709d0a09b9fc5a8",
+      "call_sites": 226,
+      "by_value_binding": {
+        "absent": 56,
+        "dynamic": 53,
+        "literal": 117
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "crewAIInc/crewAI",
+      "commit": "c3f83cd866605b179bfe109f797c80e7b017a20e",
+      "call_sites": 29,
+      "by_value_binding": {
+        "absent": 17,
+        "dynamic": 5,
+        "literal": 7
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "microsoft/autogen",
+      "commit": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+      "call_sites": 12,
+      "by_value_binding": {
+        "absent": 8,
+        "dynamic": 2,
+        "literal": 2
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "vibrantlabsai/ragas",
+      "commit": "298b68274234c060deacab3cf5fb52aa3a20e885",
+      "call_sites": 22,
+      "by_value_binding": {
+        "dynamic": 14,
+        "literal": 8
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "openai/swarm",
+      "commit": "6af0b4caf37dca4526dfd98e9fbd8ce36e7eeb22",
+      "call_sites": 12,
+      "by_value_binding": {
+        "absent": 6,
+        "dynamic": 5,
+        "literal": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "browser-use/browser-use",
+      "commit": "d8110c5ff87ccba887aaa726cdb780f2f84bef8d",
+      "call_sites": 25,
+      "by_value_binding": {
+        "absent": 4,
+        "dynamic": 20,
+        "literal": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "stanfordnlp/dspy",
+      "commit": "2a4c921602730cb97d54b619ed65bf55cd3af8bb",
+      "call_sites": 1,
+      "by_value_binding": {
+        "dynamic": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "mem0ai/mem0",
+      "commit": "f135cb994979170401d4e62d37fd043ed01ac5f8",
+      "call_sites": 41,
+      "by_value_binding": {
+        "absent": 14,
+        "dynamic": 24,
+        "literal": 3
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "huggingface/smolagents",
+      "commit": "30bb1161095dbae2271e6bc3cc4c219cc3897a57",
+      "call_sites": 1,
+      "by_value_binding": {
+        "dynamic": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "run-llama/llama_index",
+      "commit": "c60937d3099b89e66ff9040f1c45030bc4e407e9",
+      "call_sites": 59,
+      "by_value_binding": {
+        "absent": 27,
+        "dynamic": 32
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "mckaywrigley/chatbot-ui",
+      "commit": "81328b61d2a4ab597a7a057be70e785cf756d9f8",
+      "call_sites": 14,
+      "by_value_binding": {
+        "dynamic": 10,
+        "literal": 4
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "cline/cline",
+      "commit": "d6ede1a89c6de6b64c00f7581fe1536ad156a8c5",
+      "call_sites": 3,
+      "by_value_binding": {
+        "literal": 3
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "promptfoo/promptfoo",
+      "commit": "5325084139f826160dbeda5a6867d919c3c8746a",
+      "call_sites": 10,
+      "by_value_binding": {
+        "absent": 6,
+        "dynamic": 1,
+        "literal": 3
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "anthropics/claude-code-action",
+      "commit": "2261fcfc88e7de1b55f179edd588805e12de71f2",
+      "call_sites": 0,
+      "by_value_binding": {},
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "e2b-dev/fragments",
+      "commit": "cc07f43736855f42191de7ac011350cef6752342",
+      "call_sites": 0,
+      "by_value_binding": {},
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "danny-avila/LibreChat",
+      "commit": "12d78909d3f5247a8d40a47f0ef5c3ac771d9c5a",
+      "call_sites": 1,
+      "by_value_binding": {
+        "absent": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    },
+    {
+      "repo": "continuedev/continue",
+      "commit": "5522c6f44ca0ac3528b37244818fbfa39b5af470",
+      "call_sites": 7,
+      "by_value_binding": {
+        "absent": 6,
+        "dynamic": 1
+      },
+      "labelled": false,
+      "precision": null,
+      "recall": null,
+      "error": null
+    }
+  ],
+  "labelled_repositories": 0,
+  "precision": null,
+  "recall": null
+}
