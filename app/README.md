@@ -20,8 +20,10 @@ requests repository write access.
    ```
 
 4. Select **Connect GitHub**, install the app, authorize your user, and choose a repository.
-   Avert downloads the repository archive with the installation's read-only token, indexes it
-   under a temporary directory, returns the inventory, and deletes the source copy.
+   Avert resolves the selected branch to an immutable commit, downloads that archive with the
+   installation's read-only token, indexes it under a temporary directory, returns the inventory,
+   and deletes the source copy. Repository selection is paginated for installations with more
+   than 100 repositories.
 
 For offline development, the original JSONL path remains available:
 
@@ -36,3 +38,16 @@ connection is available at `GET /api/github/repositories`; ephemeral indexing is
 
 This remains a local demo path. It does not persist installations or inventory, and its server
 runtime must have the engine's `uv` environment available.
+
+## Week 4 acceptance
+
+- GitHub installation and user authorization are protected with separate state tokens; OAuth uses
+  PKCE, and the user token is discarded after installation ownership is verified.
+- The signed installation session is HTTP-only, expires after eight hours, and can only create an
+  installation-scoped, read-only GitHub client.
+- A requested repository must belong to the connected installation. The indexed revision and the
+  recorded `commit_sha` are the same immutable SHA.
+- Repository source is extracted without archive links, indexed in a temporary directory, and
+  removed in a `finally` block.
+- Unit tests cover authentication, repository pagination, immutable revision resolution, the full
+  mocked GitHub-to-indexer sequence, archive cleanup, and inventory lifecycle normalization.

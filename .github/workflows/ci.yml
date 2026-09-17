@@ -57,10 +57,8 @@ jobs:
         working-directory: engine
         run: uv run ruff check .
 
-      # test_incremental.py skips itself when no Postgres is reachable
-      # (no database service configured in this job) — the rest of the
-      # suite (unit tests + the experiment-2 harness on fixtures) runs
-      # fully offline.
+      # The Postgres service exercises incremental persistence and impact
+      # joins; the remaining unit and experiment harness tests run offline.
       - name: Test
         working-directory: engine
         run: uv run pytest -v
